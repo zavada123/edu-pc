@@ -1,0 +1,30 @@
+{
+  "name": "edu-pc",
+  "version": "0.1.0",
+  "description": "Навчальний тренажер «Збери комп'ютер»: складові ПК, збирання, шлях даних і несправності для 3–9 класу",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build:lib": "vite build -c vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zavada123/edu-pc.git"
+  },
+  "files": [
+    "lib"
+  ],
+  "exports": {
+    "./core": {
+      "types": "./lib/types/core.d.ts",
+      "import": "./lib/core.js"
+    }
+  }
+}
