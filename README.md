@@ -4,7 +4,7 @@
 
 Students look at the parts of a computer, put them in the right places step by step, answer a short question before key steps and get an explanation for every mistake: a CPU turned the wrong way, RAM in the wrong slots, the cooler cable on the wrong header. The student-facing text is in Ukrainian. It is built for [EduProstir](https://eduprostir.com).
 
-> Status: stage 5 of the [plan](#roadmap). Grade 8 builds the motherboard on the desk and then the whole computer in the case, then follows a photo's path through it, upgrades it for video editing and sees what a power cut erases; grades 3–4 unbox a new computer, sort its devices and plug it in. All of it works on a computer and a phone. Troubleshooting comes next.
+> Status: stage 6 of the [plan](#roadmap). Grade 8 builds the motherboard on the desk and then the whole computer in the case, then follows a photo's path through it, upgrades it for video editing and sees what a power cut erases; grades 3–4 unbox a new computer, sort its devices and plug it in. All of it works on a computer and a phone. Troubleshooting exercises give a built computer with one fault to find and fix. Lessons on EduProstir come next.
 
 ## Component
 
@@ -51,6 +51,8 @@ report(grade8Club, state)  // steps done, mistakes, mistakes by lesson goal (A, 
 | `grade8-club-desk` | 8 | «ПК і його складові»: what is inside, building the motherboard on the desk |
 | `grade8-club-case` | 8 | «ПК і його складові»: the power supply, board, graphics card and disk into the case, cables, monitor, keyboard and mouse, power on |
 | `grade8-club-lab` | 8 | «ПК і його складові»: the photo's path from a smartphone to the screen, saving to disk, upgrading for video editing (cores against frequency), what disappears at power off |
+| `grade8-fault-cpu-power`, `grade8-fault-hdmi`, `grade8-fault-disk` | 8 | Troubleshooting: no CPU power (fans spin, dark screen), the monitor on the board's HDMI with a graphics card in, the disk's data cable out («Диск D: не знайдено») |
+| `grade3-fault-monitor`, `grade3-fault-strip` | 3–4 | Troubleshooting: the monitor cable fell out, the power strip is switched off |
 | `grade3-new-box` | 3–4 | «Нова коробка»: unbox the devices, sort them into «передає в комп'ютер», «показує результат» and «зберігає на потім», set up the desk, plug in HDMI and USB, power on the system unit and then the monitor, advise a laptop for the dacha |
 
 ## Roadmap
@@ -60,7 +62,7 @@ report(grade8Club, state)  // steps done, mistakes, mistakes by lesson goal (A, 
 3. Building into the case, grade 8 ✓
 4. Grade 3–4 scenario: unboxing, sorting input and output devices, plugging in ✓
 5. Data path, upgrade and «power off» tasks ✓
-6. Troubleshooting mode
+6. Troubleshooting mode ✓
 7. Lessons on EduProstir
 
 ## Development

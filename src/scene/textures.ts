@@ -315,6 +315,19 @@ export const desktopTexture = (): CanvasTexture =>
     }
   })
 
+/** What the monitor shows when the computer starts but cannot find a disk: a black screen with a message. */
+export const noDiskTexture = (): CanvasTexture =>
+  canvasTexture(1024, 600, (g) => {
+    g.fillStyle = "#05070a"
+    g.fillRect(0, 0, 1024, 600)
+    g.fillStyle = "#e9ecef"
+    g.textAlign = "center"
+    g.font = "700 56px ui-monospace, monospace"
+    g.fillText("Диск D: не знайдено", 512, 280)
+    g.font = "500 34px ui-monospace, monospace"
+    g.fillText("Перевір кабелі диска", 512, 350)
+  })
+
 /** A sign with one or two lines of large text that shrink to fit: basket labels, box labels. */
 export const signTexture = (lines: ReadonlyArray<string>, bg: string, ink: string): CanvasTexture =>
   canvasTexture(1024, 256, (g) => {
