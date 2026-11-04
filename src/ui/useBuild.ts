@@ -38,6 +38,8 @@ export const useBuild = (scenario: Scenario, callbacks: BuildCallbacks) => {
       if (outcome.result === "mistake") say(outcome.message, "error")
       else if (outcome.result !== "ok") say(outcome.message, "info")
       else if (outcome.advanced) say(isDone(scenario, outcome.state) ? "Готово!" : "Правильно!", "ok")
+      // a right move clears the last mistake's explanation
+      else setToast((t) => (t?.tone === "error" ? null : t))
       if (outcome.result === "ok" || outcome.result === "mistake") {
         callbacks.onAction?.(action, outcome.state)
         if (outcome.result === "ok" && outcome.advanced && isDone(scenario, outcome.state)) {

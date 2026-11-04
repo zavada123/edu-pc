@@ -1,6 +1,7 @@
 import { MESSAGES } from "./messages.ts"
-import type { Part, Turn } from "./parts.ts"
-import type { PlaceStep, Scenario, SetStep, Slot, Step } from "./scenario.ts"
+import type { MemoryKind, Part, Turn } from "./parts.ts"
+import type { PlaceStep, Scenario, SequenceStep, SetStep, Slot, SortStep, Step, UpgradeStep } from "./scenario.ts"
+import { formatMinutes, judgeUpgrade } from "./upgrade.ts"
 
 /** A part standing in a slot, and how it is turned. */
 export interface Placed {
@@ -19,6 +20,12 @@ export interface BuildState {
   readonly inspected: ReadonlyArray<string>
   /** Steps whose question is answered. */
   readonly answered: ReadonlyArray<string>
+  /** Stops tapped so far on the current data-path step, in order. */
+  readonly picked: ReadonlyArray<string>
+  /** Item id → where the student sorted it: lost at power off (volatile) or kept (persistent). */
+  readonly sorted: Readonly<Record<string, MemoryKind>>
+  /** Upgrade step id → the cards bought. */
+  readonly upgrades: Readonly<Record<string, ReadonlyArray<string>>>
   readonly mistakes: number
   /** Step id → mistakes on that step. */
   readonly stepMistakes: Readonly<Record<string, number>>
@@ -29,8 +36,22 @@ export type Action =
   | { readonly type: "place"; readonly part: string; readonly slot: string; readonly turn: Turn }
   | { readonly type: "set"; readonly control: string; readonly value: string }
   | { readonly type: "answer"; readonly answer: string }
+  | { readonly type: "pick"; readonly stop: string }
+  | { readonly type: "upgrade"; readonly choose: ReadonlyArray<string> }
+  | { readonly type: "sort"; readonly item: string; readonly memory: MemoryKind }
 
-export type MistakeReason = "wrongKind" | "wrongSlot" | "wrongTurn" | "notReady" | "wrongAnswer" | "wrongControl"
+export type MistakeReason =
+  | "wrongKind"
+  | "wrongSlot"
+  | "wrongTurn"
+  | "notReady"
+  | "wrongAnswer"
+  | "wrongControl"
+  | "wrongStop"
+  | "overBudget"
+  | "sameGroup"
+  | "tooSlow"
+  | "wrongMemory"
 
 /**
  * What an action did:
@@ -56,7 +77,7 @@ export const startState = (scenario: Scenario): BuildState => {
     const slot = scenario.slots.find((s) => s.id === slotId)
     placed[slotId] = { part: partId, turn: slot?.turn ?? 0 }
   }
-  return { step: 0, placed, controls, inspected: [], answered: [], mistakes: 0, stepMistakes: {} }
+  return { step: 0, placed, controls, inspected: [], answered: [], picked: [], sorted: {}, upgrades: {}, mistakes: 0, stepMistakes: {} }
 }
 
 export const currentStep = (scenario: Scenario, state: BuildState): Step | undefined => scenario.steps[state.step]
@@ -89,7 +110,8 @@ const mistake = (step: Step, state: BuildState, reason: MistakeReason, message: 
 /** Moves to the next step when the current one is complete. */
 const advanceIfComplete = (scenario: Scenario, state: BuildState): Outcome => {
   const step = currentStep(scenario, state)
-  if (step && stepComplete(step, state)) return ok({ ...state, step: state.step + 1 }, true)
+  // the next step starts with no stops tapped
+  if (step && stepComplete(step, state)) return ok({ ...state, step: state.step + 1, picked: [] }, true)
   return ok(state, false)
 }
 
@@ -106,6 +128,12 @@ export const stepComplete = (step: Step, state: BuildState): boolean => {
       })
     case "set":
       return state.controls[step.control] === step.value
+    case "sequence":
+      return state.picked.length >= step.order.length
+    case "upgrade":
+      return state.upgrades[step.id] !== undefined
+    case "sort":
+      return step.items.every((item) => state.sorted[item.id] === item.memory)
   }
 }
 
@@ -154,6 +182,31 @@ const set = (scenario: Scenario, step: Step, state: BuildState, action: Extract<
   return advanceIfComplete(scenario, { ...state, controls: { ...state.controls, [action.control]: action.value } })
 }
 
+const pick = (scenario: Scenario, step: SequenceStep, state: BuildState, stopId: string): Outcome => {
+  const stop = step.stops.find((s) => s.id === stopId)
+  if (!stop) return ignored(state, MESSAGES.notNow(step.title))
+  if (step.order[state.picked.length] === stopId) return advanceIfComplete(scenario, { ...state, picked: [...state.picked, stopId] })
+  if (state.picked.includes(stopId)) return ignored(state, MESSAGES.alreadyOnPath(stop.label))
+  const last = step.stops.find((s) => s.id === state.picked.at(-1))?.label
+  return mistake(step, state, "wrongStop", stop.why ?? MESSAGES.wrongStop(stop.label, last))
+}
+
+const upgrade = (scenario: Scenario, step: UpgradeStep, state: BuildState, choose: ReadonlyArray<string>): Outcome => {
+  const verdict = judgeUpgrade(step, choose)
+  if (verdict.ok) return advanceIfComplete(scenario, { ...state, upgrades: { ...state.upgrades, [step.id]: [...choose] } })
+  const time = formatMinutes(verdict.minutes)
+  if (verdict.reason === "overBudget") return mistake(step, state, "overBudget", MESSAGES.overBudget(step.budget))
+  if (verdict.reason === "sameGroup") return mistake(step, state, "sameGroup", MESSAGES.sameGroup)
+  return mistake(step, state, "tooSlow", `${MESSAGES.tooSlow(step.task, time, formatMinutes(step.target))}${verdict.why ? ` ${verdict.why}` : ""}`)
+}
+
+const sort = (scenario: Scenario, step: SortStep, state: BuildState, itemId: string, memory: MemoryKind): Outcome => {
+  const item = step.items.find((i) => i.id === itemId)
+  if (!item) return ignored(state, MESSAGES.notNow(step.title))
+  if (item.memory !== memory) return mistake(step, state, "wrongMemory", item.why)
+  return advanceIfComplete(scenario, { ...state, sorted: { ...state.sorted, [itemId]: memory } })
+}
+
 const answer = (scenario: Scenario, step: Step, state: BuildState, given: string): Outcome => {
   if (!step.question || state.answered.includes(step.id)) return ignored(state, MESSAGES.noQuestion)
   if (given !== step.question.right) return mistake(step, state, "wrongAnswer", MESSAGES.wrongAnswer)
@@ -176,7 +229,18 @@ export const apply = (scenario: Scenario, state: BuildState, action: Action): Ou
   if (step.question && !state.answered.includes(step.id)) {
     return { result: "question", state, message: MESSAGES.answerFirst }
   }
-  return action.type === "place" ? place(scenario, step, state, action) : set(scenario, step, state, action)
+  switch (action.type) {
+    case "place":
+      return place(scenario, step, state, action)
+    case "set":
+      return set(scenario, step, state, action)
+    case "pick":
+      return step.kind === "sequence" ? pick(scenario, step, state, action.stop) : ignored(state, MESSAGES.notNow(step.title))
+    case "upgrade":
+      return step.kind === "upgrade" ? upgrade(scenario, step, state, action.choose) : ignored(state, MESSAGES.notNow(step.title))
+    case "sort":
+      return step.kind === "sort" ? sort(scenario, step, state, action.item, action.memory) : ignored(state, MESSAGES.notNow(step.title))
+  }
 }
 
 /** Applies actions one after another, as a log replay (a teacher's check, or a saved session). */

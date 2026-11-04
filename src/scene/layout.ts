@@ -60,7 +60,7 @@ export interface BoxPose {
 
 /** A device standing on the desk for the whole exercise: the monitor, the keyboard, the mouse. */
 export interface PropPose {
-  readonly kind: "monitor" | "keyboard" | "mouse"
+  readonly kind: "monitor" | "keyboard" | "mouse" | "smartphone"
   readonly at: Vec3
   /** Turn around the vertical axis, in radians. */
   readonly yaw?: number
@@ -101,6 +101,8 @@ export interface SceneLayout {
     readonly screen?: { readonly control: string; readonly on: string }
   }
   readonly props?: ReadonlyArray<PropPose>
+  /** Markers of a data path, by stop id: the USB port, the RAM, the processor. */
+  readonly stops?: Readonly<Record<string, Vec3>>
   readonly crates?: ReadonlyArray<CratePose>
   readonly boxes?: ReadonlyArray<BoxPose>
   /** Where the camera goes once the exercise is done, to show the result: the lit monitor. */
@@ -261,6 +263,26 @@ export const grade8CaseLayout: SceneLayout = {
   ]
 }
 
+// ---------- the grade 8 lab: the built computer at work ----------
+
+const above = (v: Vec3, dy: number, dz = 0): Vec3 => [v[0], v[1] + dy, v[2] + dz]
+
+/** The case scenario's computer, built and switched on, with markers for the data path and a smartphone on the desk. */
+export const grade8LabLayout: SceneLayout = {
+  ...grade8CaseLayout,
+  props: [...(grade8CaseLayout.props ?? []), { kind: "smartphone", at: [24, 0, 34], yaw: 0.4 }],
+  finale: { at: [0, 18, -30], distance: 105, view: [0.25, 0.55, 1] },
+  stops: {
+    usb: above(grade8CaseLayout.slots.usb3?.at ?? [0, 0, 0], 3, 3),
+    ram: onBoard((DIMM_X[1] + DIMM_X[3]) / 2, BOARD_TOP + 12, DIMM_Z),
+    cpu: onBoard(SOCKET[0], BOARD_TOP + 10, SOCKET[1]),
+    gpu: add(GPU_AT, [1.9, 17, 0]),
+    monitor: [0, 27, -44],
+    ssd: onBoard(-3.4, BOARD_TOP + 1.5, 4.6),
+    hdd: add(HDD_AT, [0, 5, 0])
+  }
+}
+
 // ---------- the grade 3–4 desk ----------
 
 /**
@@ -344,5 +366,6 @@ export const grade3DeskLayout: SceneLayout = {
 export const layouts: Readonly<Record<string, SceneLayout>> = {
   "grade8-club-desk": grade8DeskLayout,
   "grade8-club-case": grade8CaseLayout,
+  "grade8-club-lab": grade8LabLayout,
   "grade3-new-box": grade3DeskLayout
 }

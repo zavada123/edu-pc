@@ -1,4 +1,4 @@
-import type { Part, PartKind, Turn } from "./parts.ts"
+import type { MemoryKind, Part, PartKind, Turn } from "./parts.ts"
 
 /**
  * A place on the board, in the case or on the desk where a part goes: the CPU socket,
@@ -82,7 +82,74 @@ export interface SetStep extends StepBase {
   readonly otherControls?: Readonly<Record<string, string>>
 }
 
-export type Step = InspectStep | PlaceStep | SetStep
+/** A stop on a data path: a place in the computer the student taps, such as the USB port or the RAM. */
+export interface Stop {
+  readonly id: string
+  /** The name on the marker: «ОЗП», «Процесор». */
+  readonly label: string
+  /** Why going here now is wrong, for a stop that is a likely mistake: the disk before the RAM. */
+  readonly why?: string
+}
+
+/** Tap the stops in the order the data goes: from the USB port to the RAM, the processor, the screen. */
+export interface SequenceStep extends StepBase {
+  readonly kind: "sequence"
+  /** Every stop shown on the bench, the right ones and the distractors. */
+  readonly stops: ReadonlyArray<Stop>
+  /** Stop ids in the right order. */
+  readonly order: ReadonlyArray<string>
+}
+
+/** What a computer has, for the speed model (upgrade.ts). */
+export interface PcSpec {
+  readonly cores: number
+  readonly ghz: number
+  readonly cacheMb: number
+  readonly ramGb: number
+  readonly disk: "hdd" | "ssd"
+}
+
+/** A card the student may buy on an upgrade step. */
+export interface UpgradeOption {
+  readonly id: string
+  /** «Процесор: 6 ядер, 3,6 ГГц, кеш 12 МБ». */
+  readonly label: string
+  readonly cost: number
+  readonly change: Partial<PcSpec>
+  /** Cards of one group replace the same part: only one processor fits. */
+  readonly group?: string
+  /** Why a choice with this card is still slow: the explanation of a misconception, such as «speed is only the frequency». */
+  readonly why?: string
+}
+
+/** Pick cards within a budget so the task gets fast enough. */
+export interface UpgradeStep extends StepBase {
+  readonly kind: "upgrade"
+  readonly base: PcSpec
+  readonly options: ReadonlyArray<UpgradeOption>
+  readonly budget: number
+  /** The longest time the task may take after the upgrade, in minutes. */
+  readonly target: number
+  /** What the time is of: «монтаж відео». */
+  readonly task: string
+}
+
+/** Something on the computer the student sorts by where it is kept: lost at power off or kept. */
+export interface SortItem {
+  readonly id: string
+  readonly label: string
+  readonly memory: MemoryKind
+  /** Shown when it is put in the wrong group. */
+  readonly why: string
+}
+
+/** Sort things into «lost when the power goes off» (RAM) and «kept» (disk). */
+export interface SortStep extends StepBase {
+  readonly kind: "sort"
+  readonly items: ReadonlyArray<SortItem>
+}
+
+export type Step = InspectStep | PlaceStep | SetStep | SequenceStep | UpgradeStep | SortStep
 
 /** One exercise: the parts and places on the desk, how it starts, and the steps in order. */
 export interface Scenario {

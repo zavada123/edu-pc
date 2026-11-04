@@ -1,4 +1,5 @@
 import { currentStep, isDone, slotOf, type Action, type BuildState } from "./machine.ts"
+import { cheapestUpgrade } from "./upgrade.ts"
 import type { Goal, Scenario, Step } from "./scenario.ts"
 
 /** What the scene should light up for the current step. Empty when everything is done. */
@@ -11,6 +12,8 @@ export interface Hint {
   readonly control?: { readonly id: string; readonly value: string }
   /** The step's question is not answered yet. */
   readonly question: boolean
+  /** The next stop on a data path. */
+  readonly stop?: string
 }
 
 const NO_HINT: Hint = { parts: [], slots: [], question: false }
@@ -35,6 +38,13 @@ export const hintFor = (scenario: Scenario, state: BuildState): Hint => {
       const slots = [...new Set(left.flatMap(([, s]) => s))].filter((s) => state.placed[s] === undefined)
       return { question, parts: left.map(([part]) => part), slots }
     }
+    case "sequence": {
+      const next = step.order[state.picked.length]
+      return next === undefined ? { ...NO_HINT, question } : { ...NO_HINT, question, stop: next }
+    }
+    case "upgrade":
+    case "sort":
+      return { ...NO_HINT, question }
   }
 }
 
@@ -87,6 +97,9 @@ export const solution = (scenario: Scenario): ReadonlyArray<Action> => {
     if (step.question) actions.push({ type: "answer", answer: step.question.right })
     if (step.kind === "inspect") for (const part of step.parts) actions.push({ type: "inspect", part })
     if (step.kind === "set") actions.push({ type: "set", control: step.control, value: step.value })
+    if (step.kind === "sequence") for (const stop of step.order) actions.push({ type: "pick", stop })
+    if (step.kind === "upgrade") actions.push({ type: "upgrade", choose: cheapestUpgrade(step) ?? [] })
+    if (step.kind === "sort") for (const item of step.items) actions.push({ type: "sort", item: item.id, memory: item.memory })
     if (step.kind === "place") {
       for (const [part, slots] of Object.entries(step.targets)) {
         const slotId = slots.find((s) => !taken.has(s))

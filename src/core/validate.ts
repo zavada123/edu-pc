@@ -1,3 +1,4 @@
+import { cheapestUpgrade } from "./upgrade.ts"
 import type { Scenario } from "./scenario.ts"
 
 const duplicates = (ids: ReadonlyArray<string>): ReadonlyArray<string> =>
@@ -46,6 +47,16 @@ export const validateScenario = (scenario: Scenario): ReadonlyArray<string> => {
         if (control === step.control) errors.push(`${where}: «${control}» і є потрібний перемикач`)
       }
     }
+    if (step.kind === "sequence") {
+      const stops = new Set(step.stops.map((s) => s.id))
+      if (step.order.length === 0) errors.push(`${where}: шлях порожній`)
+      for (const id of step.order) if (!stops.has(id)) errors.push(`${where}: немає зупинки «${id}»`)
+      for (const id of duplicates(step.stops.map((s) => s.id))) errors.push(`${where}: зупинка «${id}» описана двічі`)
+    }
+    if (step.kind === "upgrade" && cheapestUpgrade(step) === undefined) {
+      errors.push(`${where}: жоден вибір карток не вкладається в бюджет і час`)
+    }
+    if (step.kind === "sort" && step.items.length === 0) errors.push(`${where}: нема чого сортувати`)
     if (step.kind === "place") {
       if (Object.keys(step.targets).length === 0) errors.push(`${where}: не вказано жодної деталі`)
       for (const [control, value] of Object.entries(step.requires ?? {})) controlValue(where, control, value)

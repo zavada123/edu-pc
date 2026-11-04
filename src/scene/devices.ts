@@ -273,6 +273,13 @@ export const printer = (): Group => {
 export const flashDrive = (): Group =>
   group(rounded([2, 0.9, 4.6], 0.3, M.blueUsb, 0, 0, 0), box([1.2, 0.45, 1.3], M.aluminium, 0, 0.2, -2.9))
 
+/** A smartphone lying on its back, screen up: the photos come from it. */
+export const smartphone = (): Group =>
+  group(
+    rounded([7.2, 0.8, 15], 0.6, M.satinBlack, 0, 0, 0),
+    box([6.6, 0.05, 13.8], mat("#1b3550", { rough: 0.15, metal: 0.1 }), 0, 0.8, 0)
+  )
+
 /** An open crate for sorting devices, with a coloured sign on its front. */
 export const crate = (label: ReadonlyArray<string>, colour: string): Group => {
   const wood = mat(colour, { rough: 0.7 })

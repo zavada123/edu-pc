@@ -19,6 +19,7 @@ import {
   sataDataPlug,
   sataPowerPlug,
   sidePanel,
+  smartphone,
   speakers,
   usbPlug
 } from "./devices.ts"
@@ -131,9 +132,9 @@ export const buildModel = (kind: PartKind, placed: boolean): Group => {
   }
 }
 
-export type DeviceKind = "monitor" | "keyboard" | "mouse" | "speakers" | "printer" | "flashDrive"
+export type DeviceKind = "monitor" | "keyboard" | "mouse" | "speakers" | "printer" | "flashDrive" | "smartphone"
 
-const DEVICES: Record<DeviceKind, () => Group> = { monitor, keyboard, mouse, speakers, printer, flashDrive }
+const DEVICES: Record<DeviceKind, () => Group> = { monitor, keyboard, mouse, speakers, printer, flashDrive, smartphone }
 
 /** The device itself, for desk props, baskets and tray pictures. */
 export const deviceModel = (kind: DeviceKind): Group => shadowed(DEVICES[kind]())

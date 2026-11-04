@@ -1,8 +1,9 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import type { BuildState } from "../core/machine.ts"
-import type { Part } from "../core/parts.ts"
+import type { MemoryKind, Part } from "../core/parts.ts"
 import type { Report } from "../core/progress.ts"
-import type { Question, Scenario, Step } from "../core/scenario.ts"
+import type { Question, Scenario, SortStep, Step, UpgradeStep } from "../core/scenario.ts"
+import { formatMinutes, montageMinutes, upgraded } from "../core/upgrade.ts"
 import type { Held, Toast } from "./useBuild.ts"
 
 /** The steps down the side: done, current, still ahead, with mistakes per step. */
@@ -177,7 +178,9 @@ export const DoneCard = ({
       </p>
       {Object.entries(result.byGoal).length > 0 && (
         <ul className="edu-pc-goals">
-          {Object.entries(result.byGoal).map(([goal, n]) => (
+          {Object.entries(result.byGoal)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([goal, n]) => (
             <li key={goal}>
               Ціль {goal}
               {goals[goal] ? ` (${goals[goal]})` : ""}: {n === 0 ? "без помилок" : `помилок ${n}`}
@@ -188,6 +191,111 @@ export const DoneCard = ({
       <button type="button" className="edu-pc-answer" onClick={onRestart}>
         Зібрати ще раз
       </button>
+    </div>
+  </div>
+)
+
+/**
+ * Cards to buy on an upgrade step. The student picks within the budget and checks: the time after the
+ * upgrade is shown only on a check, so it is a decision, not a slider to play with.
+ */
+export const UpgradeCard = ({
+  step,
+  note,
+  onCheck
+}: {
+  step: UpgradeStep
+  /** The explanation of the last mistake, kept in view while the student thinks again. */
+  note: string | undefined
+  onCheck: (choose: ReadonlyArray<string>) => void
+}) => {
+  const [chosen, setChosen] = useState<ReadonlyArray<string>>([])
+  const [tried, setTried] = useState<string | null>(null)
+  const spent = step.options.filter((o) => chosen.includes(o.id)).reduce((sum, o) => sum + o.cost, 0)
+  const toggle = (id: string) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
+  const check = () => {
+    const minutes = montageMinutes(upgraded(step.base, step.options.filter((o) => chosen.includes(o.id))))
+    setTried(formatMinutes(minutes))
+    onCheck(chosen)
+  }
+  return (
+    <div className="edu-pc-overlay is-panel" role="dialog" aria-labelledby="edu-pc-up">
+      <div className="edu-pc-question edu-pc-shop">
+        <p className="edu-pc-card-count">
+          {step.task} зараз: {formatMinutes(montageMinutes(step.base))}. Мета: не довше {formatMinutes(step.target)}.
+        </p>
+        <h2 id="edu-pc-up">Що замінити? Бюджет: {step.budget} тис. грн</h2>
+        <div className="edu-pc-answers">
+          {step.options.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              className={`edu-pc-answer edu-pc-offer${chosen.includes(o.id) ? " is-chosen" : ""}`}
+              aria-pressed={chosen.includes(o.id)}
+              onClick={() => toggle(o.id)}
+            >
+              <span>{o.label}</span>
+              <b>{o.cost} тис.</b>
+            </button>
+          ))}
+        </div>
+        <p className={`edu-pc-shop-sum${spent > step.budget ? " is-over" : ""}`}>
+          Вибрано на {spent} тис. грн із {step.budget}
+          {tried ? ` · остання перевірка: ${tried}` : ""}
+        </p>
+        {note && <p className="edu-pc-note">{note}</p>}
+        <button type="button" className="edu-pc-primary" disabled={chosen.length === 0} onClick={check}>
+          Замінити й перевірити
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const MEMORY_NAMES: Readonly<Record<MemoryKind, string>> = {
+  volatile: "Зникне",
+  persistent: "Лишиться"
+}
+
+/** Things on the computer, each to sort: lost at power off (it is only in RAM) or kept (it is on a disk). */
+export const SortCard = ({
+  step,
+  sorted,
+  note,
+  onSort
+}: {
+  step: SortStep
+  sorted: Readonly<Record<string, MemoryKind>>
+  note: string | undefined
+  onSort: (item: string, memory: MemoryKind) => void
+}) => (
+  <div className="edu-pc-overlay is-panel" role="dialog" aria-labelledby="edu-pc-sort">
+    <div className="edu-pc-question edu-pc-sort">
+      <h2 id="edu-pc-sort">Що буде після вимкнення?</h2>
+      <ul className="edu-pc-sort-list">
+        {step.items.map((item) => {
+          const at = sorted[item.id]
+          return (
+            <li key={item.id} className={at ? "is-sorted" : undefined}>
+              <span>{item.label}</span>
+              <span className="edu-pc-sort-buttons">
+                {(["volatile", "persistent"] as const).map((memory) => (
+                  <button
+                    key={memory}
+                    type="button"
+                    className={`edu-pc-sort-btn is-${memory}${at === memory ? " is-chosen" : ""}`}
+                    disabled={at !== undefined}
+                    onClick={() => onSort(item.id, memory)}
+                  >
+                    {MEMORY_NAMES[memory]}
+                  </button>
+                ))}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      {note && <p className="edu-pc-note">{note}</p>}
     </div>
   </div>
 )
