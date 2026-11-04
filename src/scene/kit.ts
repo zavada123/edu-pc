@@ -62,7 +62,7 @@ export const box = (size: Size, material: Material | Material[], x = 0, y = 0, z
 }
 
 /** A box with rounded edges, for lids, housings and anything a hand would touch. */
-export const rounded = (size: Size, radius: number, material: Material, x = 0, y = 0, z = 0): Mesh => {
+export const rounded = (size: Size, radius: number, material: Material | Material[], x = 0, y = 0, z = 0): Mesh => {
   const r = Math.min(radius, size[0] / 2, size[1] / 2, size[2] / 2)
   const mesh = new Mesh(new RoundedBoxGeometry(size[0], size[1], size[2], 2, r), material)
   mesh.position.set(x, y + size[1] / 2, z)
@@ -122,16 +122,20 @@ export const shadowed = <T extends Object3D>(obj: T): T => {
 
 /**
  * Joins the meshes of a model that never moves into one mesh per material, so the board
- * draws in a few dozen calls instead of hundreds. Meshes with several materials and
- * instanced meshes stay as they are.
+ * draws in a few dozen calls instead of hundreds. Meshes with several materials, instanced
+ * meshes and anything that moves (a fan rotor, marked `spin`) or is changed later (marked `keep`) stay as they are.
  */
 export const mergeStatic = (root: Group): Group => {
   root.updateMatrixWorld(true)
   const inverse = new Matrix4().copy(root.matrixWorld).invert()
   const byMaterial = new Map<Material, BufferGeometry[]>()
   const merged: Mesh[] = []
+  const moves = (o: Object3D): boolean => {
+    for (let p: Object3D | null = o; p && p !== root; p = p.parent) if (p.userData.spin || p.userData.keep) return true
+    return false
+  }
   root.traverse((o) => {
-    if (!(o instanceof Mesh) || o instanceof InstancedMesh || Array.isArray(o.material)) return
+    if (!(o instanceof Mesh) || o instanceof InstancedMesh || Array.isArray(o.material) || moves(o)) return
     const geometry = (o.geometry as BufferGeometry).index ? (o.geometry as BufferGeometry).toNonIndexed() : (o.geometry as BufferGeometry).clone()
     geometry.applyMatrix4(new Matrix4().multiplyMatrices(inverse, o.matrixWorld))
     for (const name of Object.keys(geometry.attributes)) if (!["position", "normal", "uv"].includes(name)) geometry.deleteAttribute(name)
@@ -151,4 +155,24 @@ export const mergeStatic = (root: Group): Group => {
     if (geometry) root.add(new Mesh(geometry, material))
   }
   return root
+}
+
+/**
+ * The spinning part of a fan: curved blades round a hub, turning around its own y axis.
+ * Marked `spin`, so the scene turns it once the computer is on.
+ */
+export const fanRotor = (radius: number, count: number, blade: Material, hub: Material, y = 0): Group => {
+  const rotor = group()
+  const length = radius * 0.66
+  for (let i = 0; i < count; i++) {
+    const b = rounded([length, 0.06, radius * 0.36], 0.03, blade, radius * 0.3 + length / 2, 0, 0)
+    b.rotation.x = 0.5
+    const holder = group(b)
+    holder.rotation.y = (i / count) * Math.PI * 2
+    rotor.add(holder)
+  }
+  rotor.add(cylinder(radius * 0.3, 0.6, hub, 0, -0.3))
+  rotor.position.y = y
+  rotor.userData.spin = true
+  return rotor
 }

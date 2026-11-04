@@ -12,7 +12,7 @@ import {
   type WebGLRenderer
 } from "three"
 import type { PartKind } from "../core/parts.ts"
-import { buildPart, MODELLED } from "./parts.ts"
+import type { Group } from "three"
 
 const VIEW = new Vector3(0.9, 1.1, 1.25).normalize()
 const ICON_PX = 128
@@ -22,14 +22,15 @@ const ICON_PX = 128
  * so a student recognises on the bench what they picked in the tray.
  * Uses the scene's own renderer (a second WebGL context slows weak computers down) but draws
  * off screen, so the visible canvas is never read back.
- * Returns a PNG data URL per modelled kind; other kinds are left out.
+ * Returns a PNG data URL per kind that `model` gives a model for; other kinds are left out.
  */
 export const renderIcons = (
   renderer: WebGLRenderer,
   environment: Texture | null,
-  kinds: ReadonlyArray<PartKind>
+  kinds: ReadonlyArray<PartKind>,
+  model: (kind: PartKind) => Group | null
 ): Partial<Record<PartKind, string>> => {
-  const wanted = [...new Set(kinds)].filter((k) => MODELLED.has(k))
+  const wanted = [...new Set(kinds)]
   const out: Partial<Record<PartKind, string>> = {}
   if (wanted.length === 0) return out
   const scene = new Scene()
@@ -50,9 +51,10 @@ export const renderIcons = (
   renderer.shadowMap.enabled = false
   try {
     for (const kind of wanted) {
-      const model = buildPart(kind, false)
-      scene.add(model)
-      const bounds = new Box3().setFromObject(model)
+      const built = model(kind)
+      if (!built) continue
+      scene.add(built)
+      const bounds = new Box3().setFromObject(built)
       const centre = bounds.getCenter(new Vector3())
       const radius = bounds.getSize(new Vector3()).length() / 2
       // a bounding sphere leaves wide margins; pull in so the part fills the picture
@@ -67,8 +69,8 @@ export const renderIcons = (
         g.putImageData(toImage(pixels), 0, 0)
         out[kind] = canvas.toDataURL("image/png")
       }
-      scene.remove(model)
-      model.traverse((o) => {
+      scene.remove(built)
+      built.traverse((o) => {
         if (o instanceof Mesh) o.geometry.dispose()
       })
     }

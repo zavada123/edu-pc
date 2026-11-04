@@ -117,6 +117,36 @@ describe("set step", () => {
     expect(outcome.result).toBe("ignored")
     expect(outcome.state.mistakes).toBe(0)
   })
+
+  test("explains a mistaken control the step names, and counts it", () => {
+    const desk: Scenario = {
+      id: "desk",
+      grade: 3,
+      title: "Desk",
+      story: [],
+      parts: [],
+      slots: [],
+      controls: [
+        { id: "monitor", label: "Кнопка монітора", values: ["off", "on"] },
+        { id: "power", label: "Кнопка комп'ютера", values: ["off", "on"] }
+      ],
+      steps: [
+        {
+          id: "on",
+          kind: "set",
+          title: "Увімкни",
+          explain: "",
+          control: "power",
+          value: "on",
+          otherControls: { monitor: "Монітор лише показує." }
+        }
+      ]
+    }
+    const outcome = apply(desk, startState(desk), { type: "set", control: "monitor", value: "on" })
+    expect(outcome).toMatchObject({ result: "mistake", reason: "wrongControl", message: "Монітор лише показує." })
+    expect(outcome.state.mistakes).toBe(1)
+    expect(outcome.state.controls.monitor).toBe("off")
+  })
 })
 
 describe("question", () => {

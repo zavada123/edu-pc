@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { isDone, slotOf } from "../core/machine.ts"
+import { currentStep, isDone, slotOf, type BuildState } from "../core/machine.ts"
 import type { Part } from "../core/parts.ts"
 import { report } from "../core/progress.ts"
 import type { Scenario } from "../core/scenario.ts"
@@ -9,6 +9,16 @@ import type { PcScene, SceneHandle } from "../scene/PcScene.ts"
 import { DoneCard, HeldBar, PartInfo, QuestionCard, StepCard, StepList, ToastLine, Tray } from "./panels.tsx"
 import { useBuild, type BuildCallbacks } from "./useBuild.ts"
 import "./edu-pc.css"
+
+const DONE_DELAY_MS = 2600
+
+/** The current step still has to put this part somewhere else: it stands elsewhere, or nowhere yet. */
+const stillToPlace = (scenario: Scenario, state: BuildState, part: string): boolean => {
+  const step = currentStep(scenario, state)
+  const allowed = step?.kind === "place" ? step.targets[part] : undefined
+  const at = slotOf(state, part)
+  return allowed !== undefined && (at === undefined || !allowed.includes(at))
+}
 
 export interface EduPcProps extends BuildCallbacks {
   readonly scenario: Scenario
@@ -60,13 +70,13 @@ export const EduPc = ({
           sceneLayout,
           {
             onSlot: (slot) => handlers.current.placeAt(slot),
-            onInspect: (part) => handlers.current.inspect(part),
-            onLever: () => {
-              const lever = sceneLayout.lever
-              if (!lever) return
-              const current = handlers.current.state.controls[lever.control]
-              const other = scenario.controls.find((c) => c.id === lever.control)?.values.find((v) => v !== current)
-              if (other !== undefined) handlers.current.act({ type: "set", control: lever.control, value: other })
+            // a part the step still has to place is taken into the hand: a device from its basket or its open box
+            onInspect: (part) => (stillToPlace(scenario, handlers.current.state, part) ? handlers.current.take(part) : handlers.current.inspect(part)),
+            // a lever or a button switches its control to the other value
+            onControl: (control) => {
+              const current = handlers.current.state.controls[control]
+              const other = scenario.controls.find((c) => c.id === control)?.values.find((v) => v !== current)
+              if (other !== undefined) handlers.current.act({ type: "set", control, value: other })
             }
           },
           lightGraphics
@@ -83,16 +93,34 @@ export const EduPc = ({
     }
   }, [scenario, sceneLayout, lightGraphics])
 
+  // Let the last action play out in 3D (fans spin up, the monitor lights) before the summary covers it.
+  const finished = isDone(scenario, state)
+  const [showDone, setShowDone] = useState(false)
+  useEffect(() => {
+    if (!finished) {
+      setShowDone(false)
+      return
+    }
+    const t = window.setTimeout(() => setShowDone(true), DONE_DELAY_MS)
+    return () => window.clearTimeout(t)
+  }, [finished])
+
   const shownHint = showHints ? hint : null
   useEffect(() => {
-    sceneRef.current?.update({ placed: state.placed, controls: state.controls, held, hint: shownHint })
+    sceneRef.current?.update({ placed: state.placed, controls: state.controls, inspected: state.inspected, held, hint: shownHint })
   })
 
   useEffect(() => {
     if (!sceneLayout) return
-    const [at, distance] = focusPoint(sceneLayout, hint.slots, hint.control?.id)
+    // look at every place the step fills, so a step with several cables shows all their sockets
+    // and where those parts stand now, so a device to move from its basket is in view too
+    const slots =
+      step?.kind === "place"
+        ? [...new Set([...Object.values(step.targets).flat(), ...Object.keys(step.targets).flatMap((p) => slotOf(state, p) ?? [])])]
+        : hint.slots
+    const [at, distance, view] = finished && sceneLayout.finale ? [sceneLayout.finale.at, sceneLayout.finale.distance, sceneLayout.finale.view] : focusPoint(sceneLayout, slots, hint.control?.id, step?.kind === "set" ? Object.keys(step.otherControls ?? {}) : [])
     // wait a frame: on the first render the scene module is still loading
-    const t = window.setTimeout(() => sceneRef.current?.focus(at, distance), 60)
+    const t = window.setTimeout(() => sceneRef.current?.focus(at, distance, view), 60)
     return () => window.clearTimeout(t)
     // Focus once per step, not on every hint change inside a step: hint is left out on purpose.
   }, [state.step, sceneLayout, sceneError])
@@ -110,14 +138,13 @@ export const EduPc = ({
 
   if (!sceneLayout) return <p className="edu-pc-error">Для завдання «{scenario.title}» немає 3D-розкладки.</p>
 
-  const trayParts = scenario.parts.filter((p) => slotOf(state, p.id) === undefined)
+  const trayParts = scenario.parts.filter((p) => slotOf(state, p.id) === undefined || stillToPlace(scenario, state, p.id))
   const heldPart = held ? scenario.parts.find((p) => p.id === held.part) : undefined
   const infoPart = build.info ? scenario.parts.find((p) => p.id === build.info) : undefined
   const question = step?.question && !state.answered.includes(step.id) ? step.question : undefined
-  const done = isDone(scenario, state)
 
   const pick = (part: Part) => {
-    if (step?.kind === "inspect" || part.id === sceneLayout.boardPart) build.inspect(part.id)
+    if (step?.kind === "inspect" || part.id === sceneLayout.benchPart) build.inspect(part.id)
     else build.take(part.id)
   }
 
@@ -160,14 +187,14 @@ export const EduPc = ({
             parts={trayParts}
             held={held}
             highlighted={shownHint?.parts ?? []}
-            boardPart={sceneLayout.boardPart}
+            benchPart={sceneLayout.benchPart}
             icons={icons}
             onPick={pick}
           />
         )}
       </footer>
       {question && step && <QuestionCard step={step} question={question} onAnswer={(answer) => build.act({ type: "answer", answer })} />}
-      {done && <DoneCard result={report(scenario, state)} onRestart={build.restart} />}
+      {showDone && <DoneCard result={report(scenario, state)} goals={scenario.goals ?? {}} onRestart={build.restart} />}
     </div>
   )
 }

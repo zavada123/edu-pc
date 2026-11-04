@@ -21,6 +21,15 @@ export type PartKind =
   | "speakers"
   | "printer"
   | "flashDrive"
+  | "atxCable"
+  | "cpuPowerCable"
+  | "gpuPowerCable"
+  | "sataPowerCable"
+  | "sataDataCable"
+  | "sidePanel"
+  | "monitorCable"
+  | "keyboardCable"
+  | "mouseCable"
 
 /** Where a part keeps data: until power off (`volatile`) or for a long time (`persistent`). */
 export type MemoryKind = "volatile" | "persistent"

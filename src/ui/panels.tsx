@@ -85,14 +85,15 @@ export const Tray = ({
   parts,
   held,
   highlighted,
-  boardPart,
+  benchPart,
   icons,
   onPick
 }: {
   parts: ReadonlyArray<Part>
   held: Held | null
   highlighted: ReadonlyArray<string>
-  boardPart: string | undefined
+  /** The part that is the bench itself (the board, the case): it stays on the desk. */
+  benchPart: string | undefined
   /** Pictures rendered from the 3D models; until they are ready, simple drawn icons stand in. */
   icons: Partial<Record<string, string>>
   onPick: (part: Part) => void
@@ -110,7 +111,7 @@ export const Tray = ({
             <span className={`edu-pc-part-icon kind-${part.kind}`} aria-hidden="true" />
           )}
           <span>{part.name}</span>
-          {part.id === boardPart && <span className="edu-pc-part-note">на столі</span>}
+          {part.id === benchPart && <span className="edu-pc-part-note">на столі</span>}
         </button>
       )
     })}
@@ -159,9 +160,15 @@ export const ToastLine = ({ toast }: { toast: Toast | null }) =>
     </p>
   ) : null
 
-const GOAL_NAMES = { A: "шлях даних", B: "процесор", C: "види пам'яті" } as const
-
-export const DoneCard = ({ result, onRestart }: { result: Report; onRestart: () => void }) => (
+export const DoneCard = ({
+  result,
+  goals,
+  onRestart
+}: {
+  result: Report
+  goals: Readonly<Partial<Record<string, string>>>
+  onRestart: () => void
+}) => (
   <div className="edu-pc-overlay">
     <div className="edu-pc-question edu-pc-done">
       <h2>Готово! Усі кроки виконано.</h2>
@@ -172,7 +179,8 @@ export const DoneCard = ({ result, onRestart }: { result: Report; onRestart: () 
         <ul className="edu-pc-goals">
           {Object.entries(result.byGoal).map(([goal, n]) => (
             <li key={goal}>
-              Ціль {goal} ({GOAL_NAMES[goal as keyof typeof GOAL_NAMES]}): {n === 0 ? "без помилок" : `помилок ${n}`}
+              Ціль {goal}
+              {goals[goal] ? ` (${goals[goal]})` : ""}: {n === 0 ? "без помилок" : `помилок ${n}`}
             </li>
           ))}
         </ul>
