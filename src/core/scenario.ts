@@ -75,6 +75,11 @@ export interface SetStep extends StepBase {
   readonly kind: "set"
   readonly control: string
   readonly value: string
+  /**
+   * Other controls a student may reach for by mistake, each with its explanation:
+   * the monitor's button instead of the computer's, «the monitor only shows, the system unit thinks».
+   */
+  readonly otherControls?: Readonly<Record<string, string>>
 }
 
 export type Step = InspectStep | PlaceStep | SetStep
@@ -91,6 +96,8 @@ export interface Scenario {
   readonly slots: ReadonlyArray<Slot>
   readonly controls: ReadonlyArray<Control>
   readonly steps: ReadonlyArray<Step>
+  /** Short names of the lesson goals for the summary, from the lesson passport: «A: пристрої введення й виведення». */
+  readonly goals?: Readonly<Partial<Record<Goal, string>>>
   /** Parts already in place and control values at the start, for scenarios that begin half built. */
   readonly start?: {
     readonly placed?: Readonly<Record<string, string>>

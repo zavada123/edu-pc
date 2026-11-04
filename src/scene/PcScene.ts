@@ -1,7 +1,6 @@
 import {
   ACESFilmicToneMapping,
   BoxGeometry,
-  CatmullRomCurve3,
   Color,
   DirectionalLight,
   EdgesGeometry,
@@ -20,7 +19,6 @@ import {
   Raycaster,
   Scene,
   SRGBColorSpace,
-  TubeGeometry,
   Vector2,
   Vector3,
   WebGLRenderer
@@ -35,9 +33,9 @@ import { buildBoard, buildDesk, buildLever } from "./board.ts"
 import { buildCase, powerButton } from "./case.ts"
 import { FRONT_VIEW } from "./focus.ts"
 import { renderIcons } from "./icons.ts"
-import { mat } from "./kit.ts"
+import { cardboardBox, crate } from "./devices.ts"
 import { GRADE8_BOARD, type SceneLayout, type Vec3 } from "./layout.ts"
-import { buildModel, deviceModel, iconModel, MODELLED } from "./models.ts"
+import { buildModel, deviceModel, type DeviceKind, iconModel, MODELLED, placedModel, systemUnit } from "./models.ts"
 
 export interface SceneEvents {
   /** The student clicked a slot while holding a part. */
@@ -54,12 +52,19 @@ export interface SceneHandle {
   screenPoint(target: ScreenTarget): { x: number; y: number } | null
 }
 
-export type ScreenTarget = { readonly slot: string } | { readonly lever: true } | { readonly control: string }
+export type ScreenTarget =
+  | { readonly slot: string }
+  | { readonly lever: true }
+  | { readonly control: string }
+  /** A box on the desk, closed or opened. */
+  | { readonly box: string }
 
 /** Everything the scene shows. The React component sends a new view after every action. */
 export interface SceneView {
   readonly placed: Readonly<Record<string, Placed>>
   readonly controls: Readonly<Record<string, string>>
+  /** Parts the student has read about: their boxes on the desk are open. */
+  readonly inspected: ReadonlyArray<string>
   readonly held: { readonly part: string; readonly turn: Turn } | null
   readonly hint: Hint | null
 }
@@ -67,21 +72,20 @@ export interface SceneView {
 const CLICK_PX = 7
 const HOLD_HEIGHT = 5
 const SPIN_PER_FRAME = 0.45
-/** Cable thickness and colour by the kind of plug. */
-const CABLES: Partial<Record<string, { readonly r: number; readonly color: string }>> = {
-  atxCable: { r: 0.55, color: "#141518" },
-  cpuPowerCable: { r: 0.32, color: "#141518" },
-  gpuPowerCable: { r: 0.32, color: "#141518" },
-  sataPowerCable: { r: 0.22, color: "#141518" },
-  sataDataCable: { r: 0.14, color: "#c0392b" },
-  monitor: { r: 0.3, color: "#1b1d21" },
-  keyboard: { r: 0.2, color: "#3e434a" },
-  mouse: { r: 0.18, color: "#1b1d21" }
-}
 const QUARTER = Math.PI / 2
 const LEVER_UP = 1.35
 const HINT_COLOR = new Color("#ffc94d")
 const ACCEPT_COLOR = new Color("#ffffff")
+
+/** Kinds that sit on a desk as a whole device: an opened box shows one of them. */
+const DEVICE_KINDS: ReadonlySet<string> = new Set<DeviceKind>(["monitor", "keyboard", "mouse", "speakers", "printer", "flashDrive"])
+const BUTTON_FACE = new Vector3(-1, 0, 0)
+
+interface DeskBox {
+  readonly part: string
+  readonly closed: Group
+  readonly open: Group | null
+}
 
 interface SlotArea {
   readonly id: string
@@ -99,8 +103,10 @@ export class PcScene implements SceneHandle {
   private readonly bench = new Group()
   private readonly benchModel: Group
   private readonly lever: Group | null = null
-  private readonly buttons: Array<{ readonly control: string; readonly mesh: Group }> = []
-  private readonly screens: MeshStandardMaterial[] = []
+  private readonly buttons: Array<{ readonly control: string; readonly mesh: Group; readonly when: string | undefined }> = []
+  private readonly propScreens: MeshStandardMaterial[] = []
+  private screens: MeshStandardMaterial[] = []
+  private readonly boxes: DeskBox[] = []
   private spinners: Object3D[] | null = null
   private readonly areas: SlotArea[] = []
   private readonly placedMeshes = new Map<string, { slot: string; mesh: Group }>()
@@ -111,7 +117,7 @@ export class PcScene implements SceneHandle {
   private readonly holdPlane: Plane
   private readonly holdAt: Vector3
   private down: { x: number; y: number } | null = null
-  private view: SceneView = { placed: {}, controls: {}, held: null, hint: null }
+  private view: SceneView = { placed: {}, controls: {}, inspected: [], held: null, hint: null }
   private leverAngle = 0
   private readonly focusTarget = new Vector3()
   private focusFrom = new Vector3()
@@ -148,7 +154,7 @@ export class PcScene implements SceneHandle {
     if (!light) {
       sun.castShadow = true
       sun.shadow.mapSize.set(2048, 2048)
-      const reach = layout.bench === "case" ? 34 : 22
+      const reach = layout.bench === "board" ? 22 : Math.max(34, (layout.overview ?? 100) * 0.42)
       Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 10, far: 120 })
       sun.shadow.bias = -0.0005
       sun.shadow.normalBias = 0.03
@@ -158,7 +164,8 @@ export class PcScene implements SceneHandle {
     this.scene.add(buildDesk())
     this.bench.position.y = 0.05
     this.scene.add(this.bench)
-    this.benchModel = layout.bench === "case" ? buildCase() : buildBoard(GRADE8_BOARD, scenario.slots, layout.slots)
+    this.benchModel =
+      layout.bench === "case" ? buildCase() : layout.bench === "tower" ? systemUnit() : buildBoard(GRADE8_BOARD, scenario.slots, layout.slots)
     this.benchModel.userData.part = layout.benchPart
     this.bench.add(this.benchModel)
     if (layout.lever) {
@@ -169,28 +176,37 @@ export class PcScene implements SceneHandle {
       this.lever = lever
     }
     for (const pose of layout.buttons ?? []) {
-      const button = powerButton()
+      // the button model faces -x; turn it to face the way the layout says
+      const button = new Group()
+      button.add(powerButton())
+      button.quaternion.setFromUnitVectors(BUTTON_FACE, new Vector3(...pose.normal).normalize())
+      button.scale.setScalar(pose.size ?? 1)
       button.position.set(...pose.at)
       button.userData.control = pose.control
       this.bench.add(button)
-      this.buttons.push({ control: pose.control, mesh: button })
+      this.buttons.push({ control: pose.control, mesh: button, when: pose.when })
     }
+    for (const c of layout.crates ?? []) {
+      const basket = crate(c.label, c.colour)
+      basket.position.set(...c.at)
+      this.bench.add(basket)
+    }
+    for (const b of layout.boxes ?? []) this.addBox(b.part, b.at)
     for (const prop of layout.props ?? []) {
       const device = deviceModel(prop.kind)
       device.position.set(...prop.at)
       device.rotation.y = prop.yaw ?? 0
-      device.traverse((o) => {
-        if (o instanceof Mesh && o.userData.screen && o.material instanceof MeshStandardMaterial) this.screens.push(o.material)
-      })
+      this.propScreens.push(...screensOf(device))
       this.scene.add(device)
     }
+    this.screens = [...this.propScreens]
     for (const slot of scenario.slots) this.addArea(slot.id, slot.accepts)
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
     this.controls.maxPolarAngle = Math.PI * 0.46
     this.controls.minDistance = 10
-    this.controls.maxDistance = 140
+    this.controls.maxDistance = Math.max(140, (layout.overview ?? 40) * 1.4)
     const far = (layout.overview ?? 40) / 40
     this.camera.position.set(0, 34 * far, 30 * far)
     this.controls.target.set(0, 0, 0)
@@ -210,6 +226,7 @@ export class PcScene implements SceneHandle {
     this.view = view
     this.syncPlaced()
     this.syncHeld()
+    this.syncDesk()
   }
 
   /** Glides the camera to look at a point from a comfortable distance and direction; farther on a narrow screen. */
@@ -228,9 +245,14 @@ export class PcScene implements SceneHandle {
       if (!at) return null
       p = this.bench.localToWorld(new Vector3(at[0], at[1] + 0.3, at[2]))
     } else if ("control" in target) {
-      const at = this.layout.buttons?.find((b) => b.control === target.control)?.at
+      const button = this.layout.buttons?.find((b) => b.control === target.control)
+      if (!button) return null
+      const face = new Vector3(...button.normal).normalize().multiplyScalar(0.3)
+      p = this.bench.localToWorld(new Vector3(...button.at).add(face))
+    } else if ("box" in target) {
+      const at = this.layout.boxes?.find((b) => b.part === target.box)?.at
       if (!at) return null
-      p = this.bench.localToWorld(new Vector3(at[0] - 0.3, at[1], at[2]))
+      p = this.bench.localToWorld(new Vector3(at[0], at[1] + 6, at[2]))
     } else {
       if (!this.lever || !this.layout.lever) return null
       // the middle of the bar, wherever the lever is turned now
@@ -247,6 +269,8 @@ export class PcScene implements SceneHandle {
     return renderIcons(this.renderer, this.scene.environment, kinds, (kind) => {
       // on the desk the board is bare: the student is about to fill it
       if (kind === "motherboard" && this.layout.bench === "board") return buildBoard(GRADE8_BOARD, this.scenario.slots, this.layout.slots)
+      // on the grade 3–4 desk the case is the finished system unit
+      if (kind === "case" && this.layout.bench === "tower") return systemUnit()
       return MODELLED.has(kind) ? iconModel(kind) : null
     })
   }
@@ -304,39 +328,47 @@ export class PcScene implements SceneHandle {
       const pose = this.layout.slots[slotId]
       const part = this.scenario.parts.find((p) => p.id === placed.part)
       if (!pose || !part) continue
-      const model = buildModel(part.kind, true)
-      model.position.set(...pose.at)
       // a slot that takes any turn shows the part the way it really goes in
       const fixed = this.scenario.slots.find((s) => s.id === slotId)?.turn
-      model.rotation.y = fixed === undefined ? 0 : -placed.turn * QUARTER
-      const mesh = new Group()
-      mesh.add(model)
-      if (pose.cableFrom) {
-        const cable = this.cable(model, part.kind, new Vector3(...pose.cableFrom))
-        if (cable) mesh.add(cable)
-      }
+      const mesh = placedModel(part.kind, pose, fixed === undefined ? 0 : placed.turn)
       mesh.userData.part = part.id
       this.bench.add(mesh)
       this.placedMeshes.set(part.id, { slot: slotId, mesh })
     }
+    // a part taken back into the hand leaves its place: it is in the hand now
+    for (const [partId, entry] of this.placedMeshes) entry.mesh.visible = this.view.held?.part !== partId
+    this.screens = [...this.propScreens, ...[...this.placedMeshes.values()].flatMap((p) => screensOf(p.mesh))]
     this.spinners = null
   }
 
-  /** A cable from a placed plug to where it comes from, sagging a little on the way. */
-  private cable(plug: Group, kind: string, to: Vector3): Mesh | null {
-    const look = CABLES[kind]
-    const out = plug.userData.cableOut
-    const dir = plug.userData.cableDir
-    if (!look || !(out instanceof Vector3) || !(dir instanceof Vector3)) return null
-    plug.updateMatrix()
-    const start = out.clone().applyMatrix4(plug.matrix)
-    const lead = start.clone().add(dir.clone().transformDirection(plug.matrix).multiplyScalar(2.5))
-    const top = Math.max(start.y, to.y) + 2
-    const mid = new Vector3((lead.x + to.x) / 2, top, (lead.z + to.z) / 2)
-    const curve = new CatmullRomCurve3([start, lead, mid, to])
-    const tube = new Mesh(new TubeGeometry(curve, 48, look.r, 10), mat(look.color, { rough: 0.7 }))
-    tube.castShadow = true
-    return tube
+  /** A closed box on the desk, and the device it holds once opened. */
+  private addBox(part: string, at: Vec3): void {
+    const kind = this.kindOf(part)
+    const name = this.scenario.parts.find((p) => p.id === part)?.name ?? ""
+    const closed = cardboardBox(name)
+    closed.position.set(...at)
+    closed.userData.part = part
+    this.bench.add(closed)
+    let open: Group | null = null
+    if (kind && DEVICE_KINDS.has(kind)) {
+      open = deviceModel(kind as DeviceKind)
+      open.position.set(...at)
+      open.userData.part = part
+      open.visible = false
+      this.bench.add(open)
+    }
+    this.boxes.push({ part, closed, open })
+  }
+
+  /** Boxes open once their part is read about; the device stands there until it is taken or placed. */
+  private syncDesk(): void {
+    const placed = new Set(Object.values(this.view.placed).map((p) => p.part))
+    for (const box of this.boxes) {
+      const opened = this.view.inspected.includes(box.part)
+      box.closed.visible = !opened
+      if (box.open) box.open.visible = opened && !placed.has(box.part) && this.view.held?.part !== box.part
+    }
+    for (const button of this.buttons) button.mesh.visible = button.when === undefined || this.view.placed[button.when] !== undefined
   }
 
   private syncHeld(): void {
@@ -412,6 +444,12 @@ export class PcScene implements SceneHandle {
     return power !== undefined && this.view.controls[power.control] === power.on
   }
 
+  /** The screen shows its picture when the computer is on, and the monitor too when it has its own button. */
+  private screenOn(): boolean {
+    const screen = this.layout.power?.screen
+    return this.poweredOn() && (screen === undefined || this.view.controls[screen.control] === screen.on)
+  }
+
   /** A button glows when pressing it is the next thing to do; its light ring shines once the computer is on. */
   private animateButtons(pulse: number): void {
     const on = this.poweredOn()
@@ -431,7 +469,8 @@ export class PcScene implements SceneHandle {
   /** With the power on, fans spin and the monitor shows its picture. */
   private animatePower(): void {
     const on = this.poweredOn()
-    for (const screen of this.screens) screen.emissiveIntensity += ((on ? 1 : 0) - screen.emissiveIntensity) * 0.06
+    const lit = this.screenOn() ? 1 : 0
+    for (const screen of this.screens) screen.emissiveIntensity += (lit - screen.emissiveIntensity) * 0.06
     if (!on) return
     if (!this.spinners) {
       const found: Object3D[] = []
@@ -441,6 +480,16 @@ export class PcScene implements SceneHandle {
       this.spinners = found
     }
     for (const rotor of this.spinners) rotor.rotation.y += SPIN_PER_FRAME
+  }
+
+  /** A tap on a full spot of a basket (or a taken USB port) means the basket: the first free spot of its group. */
+  private freeInGroup(slot: unknown): unknown {
+    if (typeof slot !== "string") return slot
+    const group = this.layout.slots[slot]?.group
+    const occupant = this.view.placed[slot]?.part
+    if (!group || occupant === undefined || occupant === this.view.held?.part) return slot
+    const free = Object.entries(this.layout.slots).find(([id, pose]) => pose.group === group && this.view.placed[id] === undefined)
+    return free?.[0] ?? slot
   }
 
   private setPointer(e: PointerEvent): void {
@@ -477,14 +526,19 @@ export class PcScene implements SceneHandle {
       const centre = new Vector3()
       const off = (h: (typeof hits)[number]) => this.ray.ray.distanceToPoint(h.object.getWorldPosition(centre))
       const hit = candidates.reduce<(typeof hits)[number] | undefined>((best, h) => (!best || off(h) < off(best) ? h : best), undefined)
-      const slot = hit?.object.userData.slot
+      const slot = this.freeInGroup(hit?.object.userData.slot)
       if (typeof slot === "string") {
         this.holdAt.copy(hit?.point ?? this.holdAt)
         this.events.onSlot(slot)
       }
       return
     }
-    const targets: Object3D[] = [...this.buttons.map((b) => b.mesh), ...[...this.placedMeshes.values()].map((p) => p.mesh), this.benchModel]
+    const targets: Object3D[] = [
+      ...this.buttons.map((b) => b.mesh),
+      ...[...this.placedMeshes.values()].map((p) => p.mesh),
+      ...this.boxes.flatMap((b) => (b.open ? [b.closed, b.open] : [b.closed])),
+      this.benchModel
+    ].filter((o) => o.visible)
     if (this.lever) targets.unshift(this.lever)
     const hit = this.ray.intersectObjects(targets, true)[0]
     for (let obj: Object3D | null = hit?.object ?? null; obj; obj = obj.parent) {
@@ -493,4 +547,13 @@ export class PcScene implements SceneHandle {
       if (typeof obj.userData.part === "string") return this.events.onInspect(obj.userData.part)
     }
   }
+}
+
+/** Screen materials in a model: the monitor's picture, lit when the computer is on. */
+const screensOf = (model: Object3D): MeshStandardMaterial[] => {
+  const found: MeshStandardMaterial[] = []
+  model.traverse((o) => {
+    if (o instanceof Mesh && o.userData.screen && o.material instanceof MeshStandardMaterial) found.push(o.material)
+  })
+  return found
 }

@@ -160,9 +160,15 @@ export const ToastLine = ({ toast }: { toast: Toast | null }) =>
     </p>
   ) : null
 
-const GOAL_NAMES = { A: "шлях даних", B: "процесор", C: "види пам'яті" } as const
-
-export const DoneCard = ({ result, onRestart }: { result: Report; onRestart: () => void }) => (
+export const DoneCard = ({
+  result,
+  goals,
+  onRestart
+}: {
+  result: Report
+  goals: Readonly<Partial<Record<string, string>>>
+  onRestart: () => void
+}) => (
   <div className="edu-pc-overlay">
     <div className="edu-pc-question edu-pc-done">
       <h2>Готово! Усі кроки виконано.</h2>
@@ -173,7 +179,8 @@ export const DoneCard = ({ result, onRestart }: { result: Report; onRestart: () 
         <ul className="edu-pc-goals">
           {Object.entries(result.byGoal).map(([goal, n]) => (
             <li key={goal}>
-              Ціль {goal} ({GOAL_NAMES[goal as keyof typeof GOAL_NAMES]}): {n === 0 ? "без помилок" : `помилок ${n}`}
+              Ціль {goal}
+              {goals[goal] ? ` (${goals[goal]})` : ""}: {n === 0 ? "без помилок" : `помилок ${n}`}
             </li>
           ))}
         </ul>

@@ -9,6 +9,7 @@ export const grade8Case: Scenario = {
   id: "grade8-club-case",
   grade: 8,
   title: "Старий комп'ютер гуртка: збираємо в корпус",
+  goals: { A: "пристрої введення й виведення", C: "види пам'яті" },
   story: [
     "Плату з процесором, кулером, пам'яттю і SSD гурток уже зібрав.",
     "Тепер усе треба поставити в корпус, під'єднати кабелі й увімкнути комп'ютер.",
@@ -84,21 +85,21 @@ export const grade8Case: Scenario = {
     },
     {
       id: "monitor",
-      kind: "monitor",
+      kind: "monitorCable",
       name: "Монітор",
-      role: "Пристрій виведення: показує зображення, яке створює відеокарта."
+      role: "Пристрій виведення: показує зображення, яке створює відеокарта. Під'єднується кабелем HDMI."
     },
     {
       id: "keyboard",
-      kind: "keyboard",
+      kind: "keyboardCable",
       name: "Клавіатура",
-      role: "Пристрій введення: передає в комп'ютер літери, цифри й команди."
+      role: "Пристрій введення: передає в комп'ютер літери, цифри й команди. Під'єднується кабелем USB."
     },
     {
       id: "mouse",
-      kind: "mouse",
+      kind: "mouseCable",
       name: "Миша",
-      role: "Пристрій введення: керує вказівником на екрані."
+      role: "Пристрій введення: керує вказівником на екрані. Під'єднується кабелем USB."
     }
   ],
   slots: [
@@ -113,12 +114,12 @@ export const grade8Case: Scenario = {
     { id: "hddPowerPort", label: "Роз'єм живлення диска", accepts: ["sataPowerCable"] },
     { id: "sataPort", label: "Роз'єм SATA на платі", accepts: ["sataDataCable"] },
     { id: "caseSide", label: "Бік корпусу", accepts: ["sidePanel"] },
-    { id: "gpuHdmi", label: "Гніздо HDMI на відеокарті", accepts: ["monitor"] },
-    { id: "boardHdmi", label: "Гніздо HDMI на платі", accepts: ["monitor"] },
-    { id: "usb1", label: "Гніздо USB", accepts: ["keyboard", "mouse"] },
-    { id: "usb2", label: "Гніздо USB", accepts: ["keyboard", "mouse"] },
-    { id: "usb3", label: "Гніздо USB", accepts: ["keyboard", "mouse"] },
-    { id: "usb4", label: "Гніздо USB", accepts: ["keyboard", "mouse"] }
+    { id: "gpuHdmi", label: "Гніздо HDMI на відеокарті", accepts: ["monitorCable"] },
+    { id: "boardHdmi", label: "Гніздо HDMI на платі", accepts: ["monitorCable"] },
+    { id: "usb1", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] },
+    { id: "usb2", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] },
+    { id: "usb3", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] },
+    { id: "usb4", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] }
   ],
   controls: [{ id: "power", label: "Кнопка живлення", values: ["off", "on"] }],
   steps: [

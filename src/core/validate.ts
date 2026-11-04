@@ -39,7 +39,13 @@ export const validateScenario = (scenario: Scenario): ReadonlyArray<string> => {
     if (step.kind === "inspect") {
       for (const p of step.parts) if (!parts.has(p)) errors.push(`${where}: немає деталі «${p}»`)
     }
-    if (step.kind === "set") controlValue(where, step.control, step.value)
+    if (step.kind === "set") {
+      controlValue(where, step.control, step.value)
+      for (const control of Object.keys(step.otherControls ?? {})) {
+        if (!controls.has(control)) errors.push(`${where}: немає перемикача «${control}»`)
+        if (control === step.control) errors.push(`${where}: «${control}» і є потрібний перемикач`)
+      }
+    }
     if (step.kind === "place") {
       if (Object.keys(step.targets).length === 0) errors.push(`${where}: не вказано жодної деталі`)
       for (const [control, value] of Object.entries(step.requires ?? {})) controlValue(where, control, value)

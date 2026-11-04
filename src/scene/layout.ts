@@ -1,3 +1,5 @@
+import type { PartKind } from "../core/parts.ts"
+
 /** Board coordinates are centimetres: x to the right, z towards the student, y up from the desk. */
 export type Vec3 = readonly [number, number, number]
 
@@ -11,6 +13,14 @@ export interface SlotPose {
   readonly view?: Vec3
   /** For a cable plug: the point the cable comes from (the power supply, the disk). A tube joins them. */
   readonly cableFrom?: Vec3
+  /** The same, by the kind of plug, for a socket several devices may use: a USB port for the keyboard or the mouse. */
+  readonly cablesFrom?: Readonly<Partial<Record<PartKind, Vec3>>>
+  /** Turn of a plug around the way it goes in, in radians: a USB plug stands upright in an upright socket. */
+  readonly roll?: number
+  /** Shrink the placed part to fit the area, as a big device in a sorting basket. */
+  readonly fit?: boolean
+  /** Slots of one basket share a group: a tap on a full spot puts the part in a free one. */
+  readonly group?: string
 }
 
 /** The socket lever: its pivot, and which value means «up». */
@@ -29,6 +39,23 @@ export interface ButtonPose {
   readonly control: string
   readonly at: Vec3
   readonly normal: Vec3
+  /** Size of the button against the case's one: the monitor's button is smaller. */
+  readonly size?: number
+  /** A slot that must hold a part for the button to be there: the monitor's button comes with the monitor. */
+  readonly when?: string
+}
+
+/** A sorting basket on the desk, with its sign. */
+export interface CratePose {
+  readonly at: Vec3
+  readonly label: ReadonlyArray<string>
+  readonly colour: string
+}
+
+/** A closed box with a part inside; clicking it opens it (inspects the part), and the part stands there until it is taken. */
+export interface BoxPose {
+  readonly part: string
+  readonly at: Vec3
 }
 
 /** A device standing on the desk for the whole exercise: the monitor, the keyboard, the mouse. */
@@ -56,7 +83,7 @@ export interface BoardFace {
 /** How a scenario looks in 3D: what lies on the desk, where each of its slots and controls is. */
 export interface SceneLayout {
   /** What the student builds on: the bare board on the desk, or the open case lying on its side. */
-  readonly bench: "board" | "case"
+  readonly bench: "board" | "case" | "tower"
   readonly slots: Readonly<Record<string, SlotPose>>
   readonly lever?: LeverPose
   readonly buttons?: ReadonlyArray<ButtonPose>
@@ -67,8 +94,15 @@ export interface SceneLayout {
   /** Camera distance for a look at the whole bench. */
   readonly overview?: number
   /** The control that switches the computer on: fans spin and the monitor lights up when it has this value. */
-  readonly power?: { readonly control: string; readonly on: string }
+  readonly power?: {
+    readonly control: string
+    readonly on: string
+    /** The monitor's own button, when it has one: the screen lights only when this is on too. */
+    readonly screen?: { readonly control: string; readonly on: string }
+  }
   readonly props?: ReadonlyArray<PropPose>
+  readonly crates?: ReadonlyArray<CratePose>
+  readonly boxes?: ReadonlyArray<BoxPose>
   /** Where the camera goes once the exercise is done, to show the result: the lit monitor. */
   readonly finale?: { readonly at: Vec3; readonly distance: number; readonly view: Vec3 }
 }
@@ -91,15 +125,18 @@ export const BOARD_CONNECTORS = {
   pcieX1: [-8.5, 11]
 } as const satisfies Record<string, readonly [number, number]>
 
-/** The outer face of the rear panel on the board, along x, and its ports: z along the panel and y above the board. */
+/**
+ * The outer face of the rear panel on the board, along x, and the middle of each port: z along the panel
+ * and y above the board. As on a real board, a port's long side points away from the board (along y).
+ */
 export const REAR_FACE_X = -15.45
 export const REAR_PORTS = {
-  usb1: [-10.5, 0.45],
-  usb2: [-10.5, 1.45],
-  lan: [-8, 1.55],
-  hdmi: [-8, 0.45],
-  usb3: [-5.5, 0.45],
-  usb4: [-5.5, 1.45]
+  usb1: [-10.8, 0.95],
+  usb2: [-10.8, 2.55],
+  hdmi: [-8.4, 0.95],
+  lan: [-8.4, 2.6],
+  usb3: [-6, 0.95],
+  usb4: [-6, 2.55]
 } as const satisfies Record<string, readonly [number, number]>
 
 export const GRADE8_BOARD: BoardFace = {
@@ -163,7 +200,7 @@ const pcie = (at: readonly [number, number]): Vec3 => onBoard(at[0], BOARD_TOP +
 const GPU_AT = pcie(BOARD_CONNECTORS.pcieX16)
 /** Where the graphics card's own connectors end up: power on its top edge, HDMI on its bracket. */
 export const GPU_POWER_LOCAL: Vec3 = [1.9, 11.6, -7]
-export const GPU_HDMI_LOCAL: Vec3 = [1.75, 2.4, 9.05]
+export const GPU_HDMI_LOCAL: Vec3 = [1.75, 2.0, 9.05]
 /** The disk's connectors on its back end: data and power. */
 export const HDD_DATA_LOCAL: Vec3 = [-2.6, 1.3, 7.4]
 export const HDD_POWER_LOCAL: Vec3 = [1.0, 1.3, 7.4]
@@ -174,9 +211,10 @@ const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 const BACK: Vec3 = [0, 0.45, 1]
 /** Cables of the desk devices run from the back of the case down to the desk. */
 const toDesk = (at: Vec3): Vec3 => [at[0], 0.3, at[2] + 10]
+const UPRIGHT = Math.PI / 2
 const rearPort = (port: readonly [number, number]): SlotPose => {
-  const at = onBoard(REAR_FACE_X, BOARD_TOP + port[1] + 0.25, port[0])
-  return { at, area: [1.5, 1.1, 1.4], view: BACK, cableFrom: toDesk(at) }
+  const at = onBoard(REAR_FACE_X, BOARD_TOP + port[1], port[0])
+  return { at, area: [1.1, 1.6, 1.4], view: BACK, cableFrom: toDesk(at), roll: UPRIGHT }
 }
 
 export const grade8CaseLayout: SceneLayout = {
@@ -201,7 +239,13 @@ export const grade8CaseLayout: SceneLayout = {
       cableFrom: add(HDD_AT, HDD_DATA_LOCAL)
     },
     caseSide: { at: [0, CASE_SIZE[1], 0], area: [CASE_SIZE[0], 1.2, CASE_SIZE[2]] },
-    gpuHdmi: { at: add(GPU_AT, GPU_HDMI_LOCAL), area: [1.6, 1.3, 1.4], view: BACK, cableFrom: toDesk(add(GPU_AT, GPU_HDMI_LOCAL)) },
+    gpuHdmi: {
+      at: add(GPU_AT, GPU_HDMI_LOCAL),
+      area: [1.1, 1.8, 1.4],
+      view: BACK,
+      cableFrom: toDesk(add(GPU_AT, GPU_HDMI_LOCAL)),
+      roll: UPRIGHT
+    },
     boardHdmi: rearPort(REAR_PORTS.hdmi),
     usb1: rearPort(REAR_PORTS.usb1),
     usb2: rearPort(REAR_PORTS.usb2),
@@ -217,8 +261,88 @@ export const grade8CaseLayout: SceneLayout = {
   ]
 }
 
+// ---------- the grade 3–4 desk ----------
+
+/**
+ * The finished computer from the grade 8 case scenario stands upright at the left of the desk, its back
+ * (with the ports) towards the student and its glass side to the right. A point in that case's
+ * coordinates, once the case stands: its top (-x) goes up, its open side (+y) to the right.
+ */
+export const TOWER_AT: Vec3 = [-78, 0, -22.5]
+export const standing = (v: Vec3): Vec3 => [v[1] + TOWER_AT[0], CASE_SIZE[0] / 2 - v[0], v[2] + TOWER_AT[2]]
+
+const DESK_MONITOR: Vec3 = [-22, 0, -40]
+const DESK_KEYBOARD: Vec3 = [-22, 0, -16]
+const DESK_MOUSE: Vec3 = [10, 0, -16]
+const CRATE_Z = 32
+const CRATE_X = { in: -48, out: 0, store: 48 } as const
+const CRATE_FLOOR = 1
+/** The cables of the desk devices come out of their backs. */
+const MONITOR_CABLE: Vec3 = [DESK_MONITOR[0] - 4, 8, DESK_MONITOR[2] - 3]
+const KEYBOARD_CABLE: Vec3 = [DESK_KEYBOARD[0], 0.6, DESK_KEYBOARD[2] - 7.5]
+const MOUSE_CABLE: Vec3 = [DESK_MOUSE[0], 0.8, DESK_MOUSE[2] - 5.5]
+
+/** A spot in a basket: `n` spots side by side, this is spot `i`. */
+const basket = (x: number, n: number, i: number, group: string): SlotPose => {
+  const w = 38 / n
+  return { at: [x - 19 + w * (i + 0.5), CRATE_FLOOR, CRATE_Z], area: [w - 0.5, 11, 24], fit: true, group }
+}
+
+/** A port on the back of the standing tower: a big click area, the cable coming from the device on the desk. */
+const towerPort = (slot: string): SlotPose => ({ at: standing(grade8CaseLayout.slots[slot]?.at ?? [0, 0, 0]), area: [2.2, 2, 2.2], view: BACK })
+const usbPort = (slot: string): SlotPose => ({
+  ...towerPort(slot),
+  group: "usb",
+  cablesFrom: { keyboardCable: KEYBOARD_CABLE, mouseCable: MOUSE_CABLE }
+})
+
+const caseButton = grade8CaseLayout.buttons?.[0]?.at ?? [0, 0, 0]
+
+export const grade3DeskLayout: SceneLayout = {
+  bench: "tower",
+  benchPart: "tower",
+  holdHeight: 30,
+  overview: 150,
+  power: { control: "power", on: "on", screen: { control: "monitorPower", on: "on" } },
+  slots: {
+    in1: basket(CRATE_X.in, 2, 0, "in"),
+    in2: basket(CRATE_X.in, 2, 1, "in"),
+    out1: basket(CRATE_X.out, 3, 0, "out"),
+    out2: basket(CRATE_X.out, 3, 1, "out"),
+    out3: basket(CRATE_X.out, 3, 2, "out"),
+    store1: basket(CRATE_X.store, 1, 0, "store"),
+    deskMonitor: { at: DESK_MONITOR, area: [52, 8, 14] },
+    deskKeyboard: { at: DESK_KEYBOARD, area: [44, 4, 15] },
+    deskMouse: { at: DESK_MOUSE, area: [9, 4, 12] },
+    hdmi: { ...towerPort("boardHdmi"), cableFrom: MONITOR_CABLE },
+    usb1: usbPort("usb1"),
+    usb2: usbPort("usb2"),
+    usb3: usbPort("usb3"),
+    usb4: usbPort("usb4")
+  },
+  buttons: [
+    { control: "power", at: standing(caseButton), normal: [0, 1, 0] },
+    { control: "monitorPower", at: [DESK_MONITOR[0] + 22, DESK_MONITOR[1] + 12.6, DESK_MONITOR[2] + 0.9], normal: [0, 0, 1], size: 0.55, when: "deskMonitor" }
+  ],
+  crates: [
+    { at: [CRATE_X.in, 0, CRATE_Z], label: ["Передає", "в комп'ютер"], colour: "#3f7cc4" },
+    { at: [CRATE_X.out, 0, CRATE_Z], label: ["Показує", "результат"], colour: "#d0782f" },
+    { at: [CRATE_X.store, 0, CRATE_Z], label: ["Зберігає", "на потім"], colour: "#3c9a5f" }
+  ],
+  boxes: [
+    { part: "monitor", at: [-50, 0, 8] },
+    { part: "keyboard", at: [-30, 0, 8] },
+    { part: "mouse", at: [-10, 0, 8] },
+    { part: "speakers", at: [10, 0, 8] },
+    { part: "printer", at: [30, 0, 8] },
+    { part: "flash", at: [50, 0, 8] }
+  ],
+  finale: { at: [-34, 18, -30], distance: 125, view: [0.25, 0.5, 1] }
+}
+
 /** Layouts by scenario id. */
 export const layouts: Readonly<Record<string, SceneLayout>> = {
   "grade8-club-desk": grade8DeskLayout,
-  "grade8-club-case": grade8CaseLayout
+  "grade8-club-case": grade8CaseLayout,
+  "grade3-new-box": grade3DeskLayout
 }

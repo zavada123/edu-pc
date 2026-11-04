@@ -30,7 +30,7 @@ export type Action =
   | { readonly type: "set"; readonly control: string; readonly value: string }
   | { readonly type: "answer"; readonly answer: string }
 
-export type MistakeReason = "wrongKind" | "wrongSlot" | "wrongTurn" | "notReady" | "wrongAnswer"
+export type MistakeReason = "wrongKind" | "wrongSlot" | "wrongTurn" | "notReady" | "wrongAnswer" | "wrongControl"
 
 /**
  * What an action did:
@@ -146,6 +146,8 @@ const place = (
 
 const set = (scenario: Scenario, step: Step, state: BuildState, action: Extract<Action, { type: "set" }>): Outcome => {
   const target: SetStep | undefined = step.kind === "set" ? step : undefined
+  const other = target?.otherControls?.[action.control]
+  if (other !== undefined) return mistake(step, state, "wrongControl", other)
   if (!target || target.control !== action.control || target.value !== action.value) {
     return ignored(state, MESSAGES.notNow(step.title))
   }

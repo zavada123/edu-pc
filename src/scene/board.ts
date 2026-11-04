@@ -104,16 +104,15 @@ const rearPanel = (): Group => {
     box([2.45, 0.25, 9], M.accent, x, BOARD_TOP + 3.2, z),
     box([0.2, 3.4, 11.6], M.aluminium, -15.05, BOARD_TOP, z)
   )
-  // ports on the outside: USB (blue), HDMI, network, audio
+  // ports on the outside: USB (blue), HDMI, network, audio; each stands with its long side up
   const portX = REAR_FACE_X + 0.25
-  for (const key of ["usb1", "usb2", "usb3", "usb4"] as const) {
+  const port = (key: keyof typeof REAR_PORTS, shell: readonly [number, number, number], inner: readonly [number, number, number], core: Material) => {
     const [pz, py] = REAR_PORTS[key]
-    g.add(box([0.5, 0.6, 1.3], M.aluminium, portX, BOARD_TOP + py - 0.05, pz), box([0.52, 0.18, 1.0], M.blueUsb, portX, BOARD_TOP + py + 0.1, pz))
+    g.add(box(shell, M.aluminium, portX, BOARD_TOP + py - shell[1] / 2, pz), box(inner, core, portX, BOARD_TOP + py - inner[1] / 2, pz))
   }
-  const [hz, hy] = REAR_PORTS.hdmi
-  g.add(box([0.5, 0.5, 1.5], M.aluminium, portX, BOARD_TOP + hy - 0.05, hz), box([0.52, 0.28, 1.2], M.chip, portX, BOARD_TOP + hy + 0.05, hz))
-  const [lz, ly] = REAR_PORTS.lan
-  g.add(box([0.5, 1.1, 1.5], M.aluminium, portX, BOARD_TOP + ly - 0.2, lz), box([0.52, 0.8, 1.1], M.chip, portX, BOARD_TOP + ly - 0.05, lz))
+  for (const key of ["usb1", "usb2", "usb3", "usb4"] as const) port(key, [0.5, 1.3, 0.6], [0.52, 1.0, 0.18], M.blueUsb)
+  port("hdmi", [0.5, 1.5, 0.5], [0.52, 1.2, 0.28], M.chip)
+  port("lan", [0.5, 1.2, 1.4], [0.52, 0.9, 1.0], M.chip)
   const audio: Array<[number, Material]> = [
     [-2.6, M.yellow],
     [-1.8, mat("#7bbf3a")],

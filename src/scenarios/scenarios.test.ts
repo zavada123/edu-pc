@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest"
 import { apply, isDone, replay, startState } from "../core/machine.ts"
 import { hintFor, report, solution } from "../core/progress.ts"
 import { validateScenario } from "../core/validate.ts"
-import { grade8Case, grade8Club, scenarios } from "./index.ts"
+import { grade3Box, grade8Case, grade8Club, scenarios } from "./index.ts"
 
 describe.each(Object.values(scenarios))("scenario $id", (scenario) => {
   test("has no authoring errors", () => {
@@ -117,5 +117,57 @@ describe("grade 8 case", () => {
     for (const slot of ["usb1", "usb2", "usb3", "usb4"]) {
       expect(apply(grade8Case, before("keyboard"), { type: "place", part: "keyboard", slot, turn: 1 }).result).toBe("ok")
     }
+  })
+})
+
+describe("grade 3 new box", () => {
+  const actions = solution(grade3Box)
+  const before = (match: (a: (typeof actions)[number]) => boolean) => replay(grade3Box, actions.slice(0, actions.findIndex(match)))
+
+  test("the printer in the input basket is a mistake that asks what the device does", () => {
+    const outcome = apply(grade3Box, before((a) => a.type === "place" && a.part === "keyboard"), {
+      type: "place",
+      part: "printer",
+      slot: "in1",
+      turn: 0
+    })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.message).toContain("що робить цей пристрій")
+  })
+
+  test("the monitor goes from its basket to the desk", () => {
+    const state = before((a) => a.type === "place" && a.slot === "deskMonitor")
+    expect(state.placed.out1?.part).toBe("monitor")
+    const moved = apply(grade3Box, state, { type: "place", part: "monitor", slot: "deskMonitor", turn: 0 }).state
+    expect(moved.placed.deskMonitor?.part).toBe("monitor")
+    expect(moved.placed.out1).toBeUndefined()
+  })
+
+  test("the monitor cable does not fit a USB socket", () => {
+    const outcome = apply(grade3Box, before((a) => a.type === "place" && a.part === "monitorCable"), {
+      type: "place",
+      part: "monitorCable",
+      slot: "usb1",
+      turn: 0
+    })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.reason).toBe("wrongKind")
+  })
+
+  test("pressing the monitor's button first explains that the system unit thinks", () => {
+    const outcome = apply(grade3Box, before((a) => a.type === "set" && a.control === "power"), {
+      type: "set",
+      control: "monitorPower",
+      value: "on"
+    })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.message).toContain("думає системний блок")
+    expect(outcome.state.controls.monitorPower).toBe("off")
+  })
+
+  test("ends with the question about a computer for the dacha", () => {
+    const last = grade3Box.steps.at(-1)
+    expect(last?.question?.right).toBe("Ноутбук")
+    expect(actions.at(-1)).toEqual({ type: "answer", answer: "Ноутбук" })
   })
 })

@@ -304,7 +304,7 @@ export const desktopTexture = (): CanvasTexture =>
     g.fillStyle = "#ffffff"
     g.textAlign = "center"
     g.font = "800 72px system-ui, sans-serif"
-    g.fillText("Привіт, гуртку!", 512, 270)
+    g.fillText("Привіт!", 512, 270)
     g.font = "500 38px system-ui, sans-serif"
     g.fillText("Комп'ютер зібрано й увімкнено", 512, 340)
     g.fillStyle = "rgba(10, 20, 30, 0.55)"
@@ -313,4 +313,24 @@ export const desktopTexture = (): CanvasTexture =>
       g.fillStyle = ["#ffc94d", "#e9ecef", "#7bbf3a", "#e87ab0", "#2563eb", "#c0392b"][i] ?? "#fff"
       g.fillRect(24 + i * 64, 558, 40, 32)
     }
+  })
+
+/** A sign with one or two lines of large text that shrink to fit: basket labels, box labels. */
+export const signTexture = (lines: ReadonlyArray<string>, bg: string, ink: string): CanvasTexture =>
+  canvasTexture(1024, 256, (g) => {
+    g.fillStyle = bg
+    g.fillRect(0, 0, 1024, 256)
+    g.fillStyle = ink
+    g.textAlign = "center"
+    g.textBaseline = "middle"
+    const lineH = 256 / lines.length
+    lines.forEach((line, i) => {
+      let size = Math.min(110, lineH * 0.7)
+      g.font = `800 ${size}px system-ui, sans-serif`
+      while (g.measureText(line).width > 960 && size > 20) {
+        size -= 4
+        g.font = `800 ${size}px system-ui, sans-serif`
+      }
+      g.fillText(line, 512, lineH * (i + 0.5))
+    })
   })

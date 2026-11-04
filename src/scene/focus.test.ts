@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { FRONT_VIEW, focusPoint } from "./focus.ts"
-import { grade8CaseLayout, grade8DeskLayout } from "./layout.ts"
+import { grade3DeskLayout, grade8CaseLayout, grade8DeskLayout, standing } from "./layout.ts"
 
 describe("focusPoint", () => {
   test("looks at the whole board when there is nothing to place", () => {
@@ -37,5 +37,20 @@ describe("focusPoint", () => {
 
   test("stands back for the whole case", () => {
     expect(focusPoint(grade8CaseLayout, [], undefined)[1]).toBe(grade8CaseLayout.overview)
+  })
+
+  test("keeps the monitor's button in view when it is the likely mistake on the power step", () => {
+    const [at, distance] = focusPoint(grade3DeskLayout, [], "power", ["monitorPower"])
+    const [tower, monitor] = grade3DeskLayout.buttons ?? []
+    expect(at[0]).toBeCloseTo(((tower?.at[0] ?? 0) + (monitor?.at[0] ?? 0)) / 2)
+    expect(distance).toBeGreaterThan(60)
+  })
+
+  test("stands the case up: its top goes up, its open side to the right", () => {
+    const [x, y] = standing([-21.5, 21, 0])
+    const [x0, y0] = standing([21.5, 0, 0])
+    expect(y).toBeGreaterThan(y0)
+    expect(x).toBeGreaterThan(x0)
+    expect(y0).toBe(0)
   })
 })

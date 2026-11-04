@@ -1,7 +1,7 @@
 import { CanvasTexture, type Group, type Material, Mesh, MeshStandardMaterial, PlaneGeometry, Vector3 } from "three"
 import { M, box, boxes, cylinder, fanRotor, group, mat, rounded } from "./kit.ts"
 import { GPU_HDMI_LOCAL, GPU_POWER_LOCAL, HDD_DATA_LOCAL, HDD_POWER_LOCAL } from "./layout.ts"
-import { desktopTexture, fanGrilleTexture, honeycombTexture, pinGridTexture, stickerTexture, tagTexture } from "./textures.ts"
+import { desktopTexture, fanGrilleTexture, honeycombTexture, pinGridTexture, signTexture, stickerTexture, tagTexture } from "./textures.ts"
 
 /**
  * The parts that go into the case and the devices on the desk. Each model stands on its bottom centre;
@@ -93,10 +93,11 @@ export const graphicsCard = (): Group => {
   const [, hy, hz] = GPU_HDMI_LOCAL
   const bracketZ = hz - 0.25
   g.add(box([4.4, 12.2, 0.1], M.aluminium, 1.6, 0, bracketZ))
+  // three video ports in a row along the bracket, each with its long side along the row
   for (const [i, py2] of [hy, hy + 2.1, hy + 4.2].entries()) {
-    g.add(box([1.5, 0.55, 0.3], M.aluminium, GPU_HDMI_LOCAL[0], py2 - 0.27, bracketZ + 0.15))
-    g.add(box([1.2, 0.3, 0.32], M.chip, GPU_HDMI_LOCAL[0], py2 - 0.15, bracketZ + 0.16))
-    if (i === 0) g.add(box([0.3, 0.3, 0.05], M.accent, GPU_HDMI_LOCAL[0] + 1.1, py2 - 0.15, bracketZ + 0.08))
+    g.add(box([0.55, 1.5, 0.3], M.aluminium, GPU_HDMI_LOCAL[0], py2 - 0.75, bracketZ + 0.15))
+    g.add(box([0.3, 1.2, 0.32], M.chip, GPU_HDMI_LOCAL[0], py2 - 0.6, bracketZ + 0.16))
+    if (i === 0) g.add(box([0.3, 0.3, 0.05], M.accent, GPU_HDMI_LOCAL[0] + 0.7, py2 - 0.15, bracketZ + 0.08))
   }
   g.add(box([1.4, 6, 0.05], printed(honeycombTexture("#b9bfc5")), 3, 6, bracketZ + 0.06))
   return g
@@ -233,3 +234,68 @@ export const mouse = (): Group =>
     box([0.08, 0.2, 4], M.chip, 0, 2.9, -2.5),
     rounded([0.6, 0.6, 1.3], 0.25, M.gunmetal, 0, 2.7, -2.8)
   )
+
+/** A round speaker driver facing +z, its face at depth z. */
+const driver = (r: number, material: Material, x: number, y: number, z: number): Mesh => {
+  const d = cylinder(r, 0.3, material, 0, 0, 0, 32)
+  d.rotation.x = Math.PI / 2
+  d.position.set(x, y, z)
+  return d
+}
+
+/** A pair of desk speakers facing +z, with a woofer and a tweeter each. */
+export const speakers = (): Group => {
+  const cone = mat("#2b2e34", { rough: 0.8 })
+  const one = (x: number): Group =>
+    group(rounded([9, 16, 10], 0.6, M.satinBlack, x, 0, 0), driver(3.2, cone, x, 5.5, 5.05), driver(1.2, M.gunmetal, x, 12, 5.05))
+  return group(one(-11), one(11))
+}
+
+/** An inkjet printer: a light body, a paper tray at the back and a sheet coming out at the front. */
+export const printer = (): Group => {
+  const body = mat("#e3e6e9", { rough: 0.45 })
+  const paper = mat("#fbfbf8", { rough: 0.9 })
+  const g = group(
+    rounded([40, 15, 28], 1.2, body),
+    box([36, 0.8, 4], M.satinBlack, 0, 9, 14),
+    box([30, 0.2, 16], paper, 0, 6, 20),
+    box([26, 0.15, 22], paper, 0, 15, -12),
+    box([28, 8, 1], body, 0, 15, -16),
+    box([8, 0.4, 4], M.satinBlack, 13, 15, 8)
+  )
+  const slope = g.children[4]
+  if (slope) slope.rotation.x = -0.35
+  g.add(cylinder(0.5, 0.2, M.accent, 15, 15.3, 8, 16))
+  return g
+}
+
+/** A USB flash drive: a small blue body with a metal tip. */
+export const flashDrive = (): Group =>
+  group(rounded([2, 0.9, 4.6], 0.3, M.blueUsb, 0, 0, 0), box([1.2, 0.45, 1.3], M.aluminium, 0, 0.2, -2.9))
+
+/** An open crate for sorting devices, with a coloured sign on its front. */
+export const crate = (label: ReadonlyArray<string>, colour: string): Group => {
+  const wood = mat(colour, { rough: 0.7 })
+  const [w, h, d] = [40, 12, 26]
+  const g = group(
+    box([w, 1, d], wood, 0, 0, 0),
+    box([w, h, 1], wood, 0, 0, -d / 2 + 0.5),
+    box([w, h, 1], wood, 0, 0, d / 2 - 0.5),
+    box([1, h, d], wood, -w / 2 + 0.5, 0, 0),
+    box([1, h, d], wood, w / 2 - 0.5, 0, 0)
+  )
+  const sign = new Mesh(new PlaneGeometry(36, 9), printed(signTexture(label, "#fffdf6", "#1f2328")))
+  sign.position.set(0, h / 2 + 0.3, d / 2 + 0.05)
+  g.add(sign)
+  return g
+}
+
+/** A closed cardboard box with the device's name on it. */
+export const cardboardBox = (name: string): Group => {
+  const card = mat("#c49a6c", { rough: 0.85 })
+  const side = printed(signTexture([name.toUpperCase()], "#c49a6c", "#3d2b1a"), 0.85)
+  return group(
+    box([18, 13, 15], faces(card, { pz: side }), 0, 0, 0),
+    box([18.05, 0.05, 4], mat("#d9c29b", { rough: 0.6 }), 0, 13, 0)
+  )
+}
