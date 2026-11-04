@@ -3,10 +3,10 @@ import { currentStep, isDone, slotOf, type BuildState } from "../core/machine.ts
 import type { Part } from "../core/parts.ts"
 import { report } from "../core/progress.ts"
 import type { Scenario } from "../core/scenario.ts"
-import { focusPoint } from "../scene/focus.ts"
+import { focusPoint, focusStops } from "../scene/focus.ts"
 import { layouts, type SceneLayout } from "../scene/layout.ts"
 import type { PcScene, SceneHandle } from "../scene/PcScene.ts"
-import { DoneCard, HeldBar, PartInfo, QuestionCard, StepCard, StepList, ToastLine, Tray } from "./panels.tsx"
+import { DoneCard, HeldBar, PartInfo, QuestionCard, SortCard, StepCard, StepList, ToastLine, Tray, UpgradeCard } from "./panels.tsx"
 import { useBuild, type BuildCallbacks } from "./useBuild.ts"
 import "./edu-pc.css"
 
@@ -48,6 +48,7 @@ export const EduPc = ({
   const { state, step, hint, held } = build
   const [showHints, setShowHints] = useState(hints)
   const [sceneError, setSceneError] = useState<string | null>(null)
+  const [sceneReady, setSceneReady] = useState(0)
   const [icons, setIcons] = useState<Partial<Record<string, string>>>({})
   const hostRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<PcScene | null>(null)
@@ -70,6 +71,7 @@ export const EduPc = ({
           sceneLayout,
           {
             onSlot: (slot) => handlers.current.placeAt(slot),
+            onStop: (stop) => handlers.current.act({ type: "pick", stop }),
             // a part the step still has to place is taken into the hand: a device from its basket or its open box
             onInspect: (part) => (stillToPlace(scenario, handlers.current.state, part) ? handlers.current.take(part) : handlers.current.inspect(part)),
             // a lever or a button switches its control to the other value
@@ -82,6 +84,8 @@ export const EduPc = ({
           lightGraphics
         )
         setSceneError(null)
+        // the first step's camera aim waits for the scene: look again now that it is here
+        setSceneReady((n) => n + 1)
         setIcons(sceneRef.current.icons(scenario.parts.map((p) => p.kind)))
         onSceneReadyRef.current?.(sceneRef.current)
       })
@@ -106,8 +110,11 @@ export const EduPc = ({
   }, [finished])
 
   const shownHint = showHints ? hint : null
+  const mistakeNote = build.toast?.tone === "error" ? build.toast.text : undefined
+  const cardStep = (step?.kind === "upgrade" || step?.kind === "sort") && !(step.question && !state.answered.includes(step.id))
+  const path = step?.kind === "sequence" ? { stops: step.stops, picked: state.picked } : null
   useEffect(() => {
-    sceneRef.current?.update({ placed: state.placed, controls: state.controls, inspected: state.inspected, held, hint: shownHint })
+    sceneRef.current?.update({ placed: state.placed, controls: state.controls, inspected: state.inspected, held, hint: shownHint, path })
   })
 
   useEffect(() => {
@@ -118,12 +125,14 @@ export const EduPc = ({
       step?.kind === "place"
         ? [...new Set([...Object.values(step.targets).flat(), ...Object.keys(step.targets).flatMap((p) => slotOf(state, p) ?? [])])]
         : hint.slots
-    const [at, distance, view] = finished && sceneLayout.finale ? [sceneLayout.finale.at, sceneLayout.finale.distance, sceneLayout.finale.view] : focusPoint(sceneLayout, slots, hint.control?.id, step?.kind === "set" ? Object.keys(step.otherControls ?? {}) : [])
+    const [at, distance, view] = step?.kind === "sequence"
+      ? focusStops(sceneLayout, step.stops.map((s) => s.id))
+      : finished && sceneLayout.finale ? [sceneLayout.finale.at, sceneLayout.finale.distance, sceneLayout.finale.view] : focusPoint(sceneLayout, slots, hint.control?.id, step?.kind === "set" ? Object.keys(step.otherControls ?? {}) : [])
     // wait a frame: on the first render the scene module is still loading
     const t = window.setTimeout(() => sceneRef.current?.focus(at, distance, view), 60)
     return () => window.clearTimeout(t)
     // Focus once per step, not on every hint change inside a step: hint is left out on purpose.
-  }, [state.step, sceneLayout, sceneError])
+  }, [state.step, sceneLayout, sceneError, sceneReady])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -176,7 +185,8 @@ export const EduPc = ({
           {sceneError && <p className="edu-pc-error">{sceneError}</p>}
           {step && <StepCard step={step} index={state.step} total={scenario.steps.length} />}
           {infoPart && <PartInfo part={infoPart} onClose={() => build.setInfo(null)} />}
-          <ToastLine toast={build.toast} />
+          {/* a card that shows the mistake itself needs no second copy of it */}
+          <ToastLine toast={cardStep && mistakeNote ? null : build.toast} />
         </div>
       </div>
       <footer className="edu-pc-foot">
@@ -193,6 +203,12 @@ export const EduPc = ({
           />
         )}
       </footer>
+      {!question && step?.kind === "upgrade" && (
+        <UpgradeCard key={step.id} step={step} note={mistakeNote} onCheck={(choose) => build.act({ type: "upgrade", choose })} />
+      )}
+      {!question && step?.kind === "sort" && (
+        <SortCard step={step} sorted={state.sorted} note={mistakeNote} onSort={(item, memory) => build.act({ type: "sort", item, memory })} />
+      )}
       {question && step && <QuestionCard step={step} question={question} onAnswer={(answer) => build.act({ type: "answer", answer })} />}
       {showDone && <DoneCard result={report(scenario, state)} goals={scenario.goals ?? {}} onRestart={build.restart} />}
     </div>

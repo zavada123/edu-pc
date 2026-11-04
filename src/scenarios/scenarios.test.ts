@@ -2,7 +2,8 @@ import { describe, expect, test } from "vitest"
 import { apply, isDone, replay, startState } from "../core/machine.ts"
 import { hintFor, report, solution } from "../core/progress.ts"
 import { validateScenario } from "../core/validate.ts"
-import { grade3Box, grade8Case, grade8Club, scenarios } from "./index.ts"
+import { montageMinutes } from "../core/upgrade.ts"
+import { grade3Box, grade8Case, grade8Club, grade8Lab, scenarios } from "./index.ts"
 
 describe.each(Object.values(scenarios))("scenario $id", (scenario) => {
   test("has no authoring errors", () => {
@@ -169,5 +170,60 @@ describe("grade 3 new box", () => {
     const last = grade3Box.steps.at(-1)
     expect(last?.question?.right).toBe("Ноутбук")
     expect(actions.at(-1)).toEqual({ type: "answer", answer: "Ноутбук" })
+  })
+})
+
+describe("grade 8 lab", () => {
+  const actions = solution(grade8Lab)
+  const at = (match: (a: (typeof actions)[number]) => boolean) => replay(grade8Lab, actions.slice(0, actions.findIndex(match)))
+
+  test("starts with the whole computer built and switched on", () => {
+    const start = startState(grade8Lab)
+    expect(Object.keys(start.placed)).toHaveLength(13)
+    expect(start.controls.power).toBe("on")
+  })
+
+  test("the photo cannot jump from USB straight to the processor", () => {
+    const state = apply(grade8Lab, startState(grade8Lab), { type: "pick", stop: "usb" }).state
+    const outcome = apply(grade8Lab, state, { type: "pick", stop: "cpu" })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.message).toContain("оперативну пам'ять")
+    expect(outcome.state.picked).toEqual(["usb"])
+  })
+
+  test("a faster two-core processor is not enough: speed is not only the frequency", () => {
+    const outcome = apply(grade8Lab, at((a) => a.type === "upgrade"), { type: "upgrade", choose: ["cpu2", "ram16"] })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.message).toContain("не лише частота")
+  })
+
+  test("six cores and an SSD fit the budget and the time", () => {
+    const outcome = apply(grade8Lab, at((a) => a.type === "upgrade"), { type: "upgrade", choose: ["cpu6", "ssd"] })
+    expect(outcome.result).toBe("ok")
+  })
+
+  test("three cards are over the budget", () => {
+    const outcome = apply(grade8Lab, at((a) => a.type === "upgrade"), { type: "upgrade", choose: ["cpu6", "ssd", "ram16"] })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.reason).toBe("overBudget")
+  })
+
+  test("unsaved text is lost at power off, a saved video is kept", () => {
+    const state = at((a) => a.type === "sort")
+    expect(apply(grade8Lab, state, { type: "sort", item: "text", memory: "persistent" }).result).toBe("mistake")
+    expect(apply(grade8Lab, state, { type: "sort", item: "video", memory: "persistent" }).result).toBe("ok")
+  })
+})
+
+describe("montageMinutes", () => {
+  const base = { cores: 2, ghz: 2.8, cacheMb: 3, ramGb: 4, disk: "hdd" as const }
+
+  test("more cores at the same frequency are faster", () => {
+    expect(montageMinutes({ ...base, cores: 6 })).toBeLessThan(montageMinutes(base))
+  })
+
+  test("too little RAM and a hard disk slow the work down", () => {
+    expect(montageMinutes({ ...base, ramGb: 16 })).toBeLessThan(montageMinutes(base))
+    expect(montageMinutes({ ...base, disk: "ssd" })).toBeLessThan(montageMinutes(base))
   })
 })

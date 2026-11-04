@@ -40,3 +40,19 @@ export const focusPoint = (
   const centre: Vec3 = [(Math.max(...xs) + Math.min(...xs)) / 2, poses[0]?.at[1] ?? 0, (Math.max(...zs) + Math.min(...zs)) / 2]
   return [centre, Math.min(Math.max(45, layout.overview ?? 0), Math.max(20, 14 + span * 1.8)), poses[0]?.view ?? FRONT_VIEW]
 }
+
+/** Looks at every marker of a data path at once: from the USB port at the back to the monitor in front. */
+export const focusStops = (layout: SceneLayout, ids: ReadonlyArray<string>): Aim => {
+  const points = ids.flatMap((id) => {
+    const at = layout.stops?.[id]
+    return at ? [at] : []
+  })
+  if (points.length === 0) return [BENCH_CENTRE, layout.overview ?? 40, FRONT_VIEW]
+  const range = (k: 0 | 1 | 2) => {
+    const v = points.map((p) => p[k])
+    return [Math.min(...v), Math.max(...v)] as const
+  }
+  const [x, y, z] = [range(0), range(1), range(2)]
+  const span = Math.max(x[1] - x[0], z[1] - z[0], y[1] - y[0])
+  return [[(x[0] + x[1]) / 2, (y[0] + y[1]) / 2, (z[0] + z[1]) / 2], Math.max(45, 20 + span * 1.5), FRONT_VIEW]
+}

@@ -2,6 +2,8 @@ import {
   ACESFilmicToneMapping,
   BoxGeometry,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
   DirectionalLight,
   EdgesGeometry,
   Group,
@@ -18,6 +20,9 @@ import {
   PMREMGenerator,
   Raycaster,
   Scene,
+  SphereGeometry,
+  Sprite,
+  SpriteMaterial,
   SRGBColorSpace,
   Vector2,
   Vector3,
@@ -34,6 +39,7 @@ import { buildCase, powerButton } from "./case.ts"
 import { FRONT_VIEW } from "./focus.ts"
 import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
+import { signTexture } from "./textures.ts"
 import { GRADE8_BOARD, type SceneLayout, type Vec3 } from "./layout.ts"
 import { buildModel, deviceModel, type DeviceKind, iconModel, MODELLED, placedModel, systemUnit } from "./models.ts"
 
@@ -44,6 +50,8 @@ export interface SceneEvents {
   readonly onControl: (controlId: string) => void
   /** The student clicked a placed part or the bench (the board, the case). */
   readonly onInspect: (partId: string) => void
+  /** The student tapped a marker on a data path. */
+  readonly onStop: (stopId: string) => void
 }
 
 /** What the page outside the trainer may ask of the scene: tests and teacher tools. */
@@ -58,6 +66,8 @@ export type ScreenTarget =
   | { readonly control: string }
   /** A box on the desk, closed or opened. */
   | { readonly box: string }
+  /** A marker on a data path. */
+  | { readonly stop: string }
 
 /** Everything the scene shows. The React component sends a new view after every action. */
 export interface SceneView {
@@ -67,6 +77,8 @@ export interface SceneView {
   readonly inspected: ReadonlyArray<string>
   readonly held: { readonly part: string; readonly turn: Turn } | null
   readonly hint: Hint | null
+  /** The data path the student lays: every marker, and the stops tapped so far. Null on other steps. */
+  readonly path: { readonly stops: ReadonlyArray<{ readonly id: string; readonly label: string }>; readonly picked: ReadonlyArray<string> } | null
 }
 
 const CLICK_PX = 7
@@ -76,6 +88,12 @@ const WIDE_SHOT = 60
 const WIDE_ASPECT = 1.3
 const HOLD_HEIGHT = 5
 const SPIN_PER_FRAME = 0.45
+const MARKER_COLOR = new Color("#2563eb")
+const DONE_COLOR = new Color("#16a34a")
+const PACKET_COLOR = new Color("#fde047")
+const PACKET_MS_PER_LEG = 700
+/** Width of a marker's label, in centimetres. */
+const LABEL_W = 9
 const QUARTER = Math.PI / 2
 const LEVER_UP = 1.35
 const HINT_COLOR = new Color("#ffc94d")
@@ -121,7 +139,10 @@ export class PcScene implements SceneHandle {
   private readonly holdPlane: Plane
   private readonly holdAt: Vector3
   private down: { x: number; y: number } | null = null
-  private view: SceneView = { placed: {}, controls: {}, inspected: [], held: null, hint: null }
+  private view: SceneView = { placed: {}, controls: {}, inspected: [], held: null, hint: null, path: null }
+  private readonly markers = new Group()
+  private markerKey = ""
+  private readonly packet: Mesh
   private leverAngle = 0
   private readonly focusTarget = new Vector3()
   private focusFrom = new Vector3()
@@ -196,6 +217,10 @@ export class PcScene implements SceneHandle {
       this.bench.add(basket)
     }
     for (const b of layout.boxes ?? []) this.addBox(b.part, b.at)
+    this.bench.add(this.markers)
+    this.packet = onTop(new Mesh(new SphereGeometry(0.9, 20, 14), new MeshBasicMaterial({ color: PACKET_COLOR })))
+    this.packet.visible = false
+    this.bench.add(this.packet)
     for (const prop of layout.props ?? []) {
       const device = deviceModel(prop.kind)
       device.position.set(...prop.at)
@@ -231,6 +256,7 @@ export class PcScene implements SceneHandle {
     this.syncPlaced()
     this.syncHeld()
     this.syncDesk()
+    this.syncPath()
   }
 
   /** Glides the camera to look at a point from a comfortable distance and direction; farther on a narrow screen. */
@@ -262,6 +288,10 @@ export class PcScene implements SceneHandle {
       if (!button) return null
       const face = new Vector3(...button.normal).normalize().multiplyScalar(0.3)
       p = this.bench.localToWorld(new Vector3(...button.at).add(face))
+    } else if ("stop" in target) {
+      const at = this.layout.stops?.[target.stop]
+      if (!at) return null
+      p = this.bench.localToWorld(new Vector3(...at))
     } else if ("box" in target) {
       const at = this.layout.boxes?.find((b) => b.part === target.box)?.at
       if (!at) return null
@@ -373,6 +403,50 @@ export class PcScene implements SceneHandle {
     this.boxes.push({ part, closed, open })
   }
 
+  /** Markers of the data path: blue until tapped in turn, green once on the path, joined by arrows. */
+  private syncPath(): void {
+    const path = this.view.path
+    const key = path ? `${path.stops.map((s) => s.id).join()}|${path.picked.join()}` : ""
+    if (key === this.markerKey) return
+    this.markerKey = key
+    for (const child of [...this.markers.children]) {
+      this.markers.remove(child)
+      child.traverse((o) => {
+        if (o instanceof Mesh || o instanceof Sprite) {
+          o.geometry.dispose()
+          const m = o.material as MeshBasicMaterial | SpriteMaterial
+          m.map?.dispose()
+          m.dispose()
+        }
+      })
+    }
+    if (!path) return
+    for (const stop of path.stops) {
+      const at = this.layout.stops?.[stop.id]
+      if (!at) continue
+      const done = path.picked.includes(stop.id)
+      const marker = new Group()
+      marker.position.set(...at)
+      marker.userData.stop = stop.id
+      marker.add(onTop(new Mesh(new SphereGeometry(1.1, 20, 14), new MeshBasicMaterial({ color: done ? DONE_COLOR : MARKER_COLOR }))))
+      const label = onTop(new Sprite(new SpriteMaterial({ map: signTexture([stop.label], done ? "#15803d" : "#1d4ed8", "#ffffff") })))
+      label.scale.set(LABEL_W, LABEL_W / 4, 1)
+      label.position.y = 2.6
+      marker.add(label)
+      this.markers.add(marker)
+    }
+    const points = path.picked.flatMap((id) => {
+      const at = this.layout.stops?.[id]
+      return at ? [new Vector3(...at)] : []
+    })
+    for (let i = 1; i < points.length; i++) {
+      const from = points[i - 1]
+      const to = points[i]
+      if (from && to) this.markers.add(arrow(from, to))
+    }
+    this.pathPoints = points
+  }
+
   /** Boxes open once their part is read about; the device stands there until it is taken or placed. */
   private syncDesk(): void {
     const placed = new Set(Object.values(this.view.placed).map((p) => p.part))
@@ -408,6 +482,27 @@ export class PcScene implements SceneHandle {
     this.camera.updateProjectionMatrix()
   }
 
+  private pathPoints: Vector3[] = []
+
+  /** A light runs along the laid path, over and over: the data on its way. */
+  private animatePath(time: number): void {
+    const pts = this.pathPoints
+    this.packet.visible = this.view.path !== null && pts.length > 1
+    if (!this.packet.visible) return
+    const legs = pts.length - 1
+    const t = ((time / PACKET_MS_PER_LEG) % legs + legs) % legs
+    const i = Math.floor(t)
+    const a = pts[i]
+    const b = pts[i + 1]
+    if (a && b) this.packet.position.lerpVectors(a, b, t - i)
+    const next = this.view.hint?.stop
+    for (const marker of this.markers.children) {
+      if (marker.userData.stop === undefined) continue
+      const pulse = marker.userData.stop === next ? 1 + 0.25 * Math.sin(time / 200) : 1
+      marker.scale.setScalar(pulse)
+    }
+  }
+
   private readonly frame = (time: number): void => {
     const pulse = 0.5 + 0.5 * Math.sin(time / 260)
     const held = this.view.held
@@ -436,6 +531,7 @@ export class PcScene implements SceneHandle {
       })
     }
     this.animateButtons(pulse)
+    this.animatePath(time)
     this.animatePower()
     if (this.heldMesh && held) {
       const m = this.heldMesh.mesh
@@ -546,6 +642,11 @@ export class PcScene implements SceneHandle {
       }
       return
     }
+    // markers are drawn over everything, so a tap on one wins over the glass and the parts behind it
+    const marker = this.ray.intersectObjects(this.markers.children, true)[0]
+    for (let obj: Object3D | null = marker?.object ?? null; obj; obj = obj.parent) {
+      if (typeof obj.userData.stop === "string") return this.events.onStop(obj.userData.stop)
+    }
     const targets: Object3D[] = [
       ...this.buttons.map((b) => b.mesh),
       ...[...this.placedMeshes.values()].map((p) => p.mesh),
@@ -569,4 +670,29 @@ const screensOf = (model: Object3D): MeshStandardMaterial[] => {
     if (o instanceof Mesh && o.userData.screen && o.material instanceof MeshStandardMaterial) found.push(o.material)
   })
   return found
+}
+
+/** Drawn after everything and through it: a marker must stay visible inside the case and behind the glass. */
+const onTop = <T extends Mesh | Sprite>(o: T): T => {
+  const m = o.material as MeshBasicMaterial | SpriteMaterial
+  m.depthTest = false
+  m.transparent = true
+  o.renderOrder = 10
+  return o
+}
+
+/** An arrow from one stop to the next: a thin tube and a cone at its end. */
+const arrow = (from: Vector3, to: Vector3): Group => {
+  const g = new Group()
+  const dir = to.clone().sub(from)
+  const length = dir.length()
+  const material = () => new MeshBasicMaterial({ color: DONE_COLOR })
+  const shaft = onTop(new Mesh(new CylinderGeometry(0.28, 0.28, Math.max(0.1, length - 3.4), 10), material()))
+  shaft.position.y = (length - 3.4) / 2 + 1.1
+  const head = onTop(new Mesh(new ConeGeometry(0.8, 2, 14), material()))
+  head.position.y = length - 1.1 - 1
+  g.add(shaft, head)
+  g.position.copy(from)
+  g.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), dir.normalize())
+  return g
 }

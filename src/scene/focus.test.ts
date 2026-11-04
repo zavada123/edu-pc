@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
-import { FRONT_VIEW, focusPoint } from "./focus.ts"
-import { grade3DeskLayout, grade8CaseLayout, grade8DeskLayout, standing } from "./layout.ts"
+import { FRONT_VIEW, focusPoint, focusStops } from "./focus.ts"
+import { grade3DeskLayout, grade8CaseLayout, grade8DeskLayout, grade8LabLayout, standing } from "./layout.ts"
 
 describe("focusPoint", () => {
   test("looks at the whole board when there is nothing to place", () => {
@@ -52,5 +52,11 @@ describe("focusPoint", () => {
     expect(y).toBeGreaterThan(y0)
     expect(x).toBeGreaterThan(x0)
     expect(y0).toBe(0)
+  })
+
+  test("stands back far enough for the data path from the USB port to the monitor", () => {
+    const [at, distance] = focusStops(grade8LabLayout, ["usb", "monitor"])
+    expect(at[2]).toBeLessThan(0)
+    expect(distance).toBeGreaterThan(100)
   })
 })

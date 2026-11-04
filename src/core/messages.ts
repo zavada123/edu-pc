@@ -10,5 +10,13 @@ export const MESSAGES = {
   answerFirst: "Спершу дай відповідь на запитання.",
   noQuestion: "Зараз немає запитання.",
   finished: "Усе вже зібрано.",
-  unknownPart: "Такої деталі тут немає."
+  unknownPart: "Такої деталі тут немає.",
+  wrongStop: (stop: string, after: string | undefined) =>
+    after === undefined
+      ? `Дані ще не можуть потрапити в «${stop}». Подумай, звідки вони приходять у комп'ютер.`
+      : `Після «${after}» дані йдуть не в «${stop}». Перечитай пояснення кроку.`,
+  alreadyOnPath: (stop: string) => `«${stop}» уже є на шляху.`,
+  overBudget: (budget: number) => `Це дорожче, ніж є грошей: бюджет ${budget}. Прибери одну картку.`,
+  sameGroup: "Обидві картки замінюють одну деталь. Вибери одну з них.",
+  tooSlow: (task: string, time: string, target: string) => `${task}: ${time}, а треба не довше ${target}.`
 } as const
