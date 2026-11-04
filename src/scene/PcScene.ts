@@ -70,6 +70,10 @@ export interface SceneView {
 }
 
 const CLICK_PX = 7
+const NARROW_PX = 700
+/** Camera distances from this far are looks at a wide area, which a narrow screen must fit across. */
+const WIDE_SHOT = 60
+const WIDE_ASPECT = 1.3
 const HOLD_HEIGHT = 5
 const SPIN_PER_FRAME = 0.45
 const QUARTER = Math.PI / 2
@@ -206,7 +210,7 @@ export class PcScene implements SceneHandle {
     this.controls.enableDamping = true
     this.controls.maxPolarAngle = Math.PI * 0.46
     this.controls.minDistance = 10
-    this.controls.maxDistance = Math.max(140, (layout.overview ?? 40) * 1.4)
+    this.controls.maxDistance = Math.max(140, (layout.overview ?? 40) * 2.5)
     const far = (layout.overview ?? 40) / 40
     this.camera.position.set(0, 34 * far, 30 * far)
     this.controls.target.set(0, 0, 0)
@@ -232,10 +236,19 @@ export class PcScene implements SceneHandle {
   /** Glides the camera to look at a point from a comfortable distance and direction; farther on a narrow screen. */
   focus(at: Vec3, distance = 26, view: Vec3 = FRONT_VIEW): void {
     this.focusTarget.set(at[0], at[1], at[2])
-    const narrow = this.host.clientWidth < 700 ? 1.45 : 1
-    const offset = new Vector3(...view).normalize().multiplyScalar(distance * narrow)
+    const offset = new Vector3(...view).normalize().multiplyScalar(distance * this.narrowFactor(distance))
     this.focusFrom = this.focusTarget.clone().add(offset)
     this.focusing = 1
+  }
+
+  /**
+   * How much farther to stand on a narrow screen. Close looks need a little more room; a look at a
+   * whole wide desk on a phone held upright needs enough to fit the desk's width.
+   */
+  private narrowFactor(distance: number): number {
+    if (this.host.clientWidth >= NARROW_PX) return 1
+    const aspect = Math.max(0.3, this.host.clientWidth / Math.max(1, this.host.clientHeight))
+    return distance < WIDE_SHOT ? 1.45 : Math.min(2.4, Math.max(1.45, WIDE_ASPECT / aspect))
   }
 
   screenPoint(target: ScreenTarget): { x: number; y: number } | null {
