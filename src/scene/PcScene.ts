@@ -1,6 +1,7 @@
 import {
   ACESFilmicToneMapping,
   BoxGeometry,
+  type CanvasTexture,
   Color,
   ConeGeometry,
   CylinderGeometry,
@@ -39,7 +40,7 @@ import { buildCase, powerButton } from "./case.ts"
 import { FRONT_VIEW } from "./focus.ts"
 import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
-import { signTexture } from "./textures.ts"
+import { noDiskTexture, signTexture } from "./textures.ts"
 import { GRADE8_BOARD, type SceneLayout, type Vec3 } from "./layout.ts"
 import { buildModel, deviceModel, type DeviceKind, iconModel, MODELLED, placedModel, systemUnit } from "./models.ts"
 
@@ -336,6 +337,7 @@ export class PcScene implements SceneHandle {
         }
       }
     })
+    this.noDisk?.dispose()
     this.scene.environment?.dispose()
     this.renderer.dispose()
     el.remove()
@@ -483,6 +485,7 @@ export class PcScene implements SceneHandle {
   }
 
   private pathPoints: Vector3[] = []
+  private noDisk: CanvasTexture | null = null
 
   /** A light runs along the laid path, over and over: the data on its way. */
   private animatePath(time: number): void {
@@ -550,13 +553,21 @@ export class PcScene implements SceneHandle {
 
   private poweredOn(): boolean {
     const power = this.layout.power
-    return power !== undefined && this.view.controls[power.control] === power.on
+    if (power === undefined || this.view.controls[power.control] !== power.on) return false
+    return Object.entries(power.requires ?? {}).every(([control, value]) => this.view.controls[control] === value)
+  }
+
+  /** What the screen shows with the power on: the desktop, nothing, or «disk not found» when a needed part is missing. */
+  private picture(): "desktop" | "dark" | "noDisk" {
+    const missing = (this.layout.power?.needs ?? []).filter((n) => this.view.placed[n.slot] === undefined)
+    if (missing.some((n) => n.screen === "dark")) return "dark"
+    return missing.length > 0 ? "noDisk" : "desktop"
   }
 
   /** The screen shows its picture when the computer is on, and the monitor too when it has its own button. */
   private screenOn(): boolean {
     const screen = this.layout.power?.screen
-    return this.poweredOn() && (screen === undefined || this.view.controls[screen.control] === screen.on)
+    return this.poweredOn() && (screen === undefined || this.view.controls[screen.control] === screen.on) && this.picture() !== "dark"
   }
 
   /** A button glows when pressing it is the next thing to do; its light ring shines once the computer is on. */
@@ -579,6 +590,15 @@ export class PcScene implements SceneHandle {
   private animatePower(): void {
     const on = this.poweredOn()
     const lit = this.screenOn() ? 1 : 0
+    const map = this.picture() === "noDisk" ? (this.noDisk ??= noDiskTexture()) : null
+    for (const screen of this.screens) {
+      screen.userData.desktop ??= screen.emissiveMap
+      const want = map ?? (screen.userData.desktop as typeof screen.emissiveMap)
+      if (screen.emissiveMap !== want) {
+        screen.emissiveMap = want
+        screen.needsUpdate = true
+      }
+    }
     for (const screen of this.screens) screen.emissiveIntensity += (lit - screen.emissiveIntensity) * 0.06
     if (!on) return
     if (!this.spinners) {

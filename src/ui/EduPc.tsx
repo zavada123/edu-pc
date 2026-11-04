@@ -127,12 +127,13 @@ export const EduPc = ({
         : hint.slots
     const [at, distance, view] = step?.kind === "sequence"
       ? focusStops(sceneLayout, step.stops.map((s) => s.id))
-      : finished && sceneLayout.finale ? [sceneLayout.finale.at, sceneLayout.finale.distance, sceneLayout.finale.view] : focusPoint(sceneLayout, slots, hint.control?.id, step?.kind === "set" ? Object.keys(step.otherControls ?? {}) : [])
+      : (finished || (step?.look === "result" && !!step.question && !state.answered.includes(step.id))) && sceneLayout.finale ? [sceneLayout.finale.at, sceneLayout.finale.distance, sceneLayout.finale.view] : focusPoint(sceneLayout, slots, hint.control?.id, step?.kind === "set" ? Object.keys(step.otherControls ?? {}) : [])
     // wait a frame: on the first render the scene module is still loading
     const t = window.setTimeout(() => sceneRef.current?.focus(at, distance, view), 60)
     return () => window.clearTimeout(t)
     // Focus once per step, not on every hint change inside a step: hint is left out on purpose.
-  }, [state.step, sceneLayout, sceneError, sceneReady])
+    // and once more after the step's question: a look at the symptom, then at the button to press
+  }, [state.step, state.answered.length, sceneLayout, sceneError, sceneReady])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -147,7 +148,16 @@ export const EduPc = ({
 
   if (!sceneLayout) return <p className="edu-pc-error">Для завдання «{scenario.title}» немає 3D-розкладки.</p>
 
-  const trayParts = scenario.parts.filter((p) => slotOf(state, p.id) === undefined || stillToPlace(scenario, state, p.id))
+  // On a switch or a question, a part a later step puts in place stays out of the tray: in a fault
+  // exercise the loose cable would give the answer away before the student has thought about it.
+  const later = new Set(
+    step?.kind === "inspect" || step?.kind === "place"
+      ? []
+      : scenario.steps.slice(state.step + 1).flatMap((s) => (s.kind === "place" ? Object.keys(s.targets) : []))
+  )
+  const trayParts = scenario.parts.filter(
+    (p) => (slotOf(state, p.id) === undefined || stillToPlace(scenario, state, p.id)) && !later.has(p.id)
+  )
   const heldPart = held ? scenario.parts.find((p) => p.id === held.part) : undefined
   const infoPart = build.info ? scenario.parts.find((p) => p.id === build.info) : undefined
   const question = step?.question && !state.answered.includes(step.id) ? step.question : undefined

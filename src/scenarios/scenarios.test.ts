@@ -3,6 +3,7 @@ import { apply, isDone, replay, startState } from "../core/machine.ts"
 import { hintFor, report, solution } from "../core/progress.ts"
 import { validateScenario } from "../core/validate.ts"
 import { montageMinutes } from "../core/upgrade.ts"
+import { grade3FaultStrip, grade8FaultHdmi } from "./faults.ts"
 import { grade3Box, grade8Case, grade8Club, grade8Lab, scenarios } from "./index.ts"
 
 describe.each(Object.values(scenarios))("scenario $id", (scenario) => {
@@ -225,5 +226,28 @@ describe("montageMinutes", () => {
   test("too little RAM and a hard disk slow the work down", () => {
     expect(montageMinutes({ ...base, ramGb: 16 })).toBeLessThan(montageMinutes(base))
     expect(montageMinutes({ ...base, disk: "ssd" })).toBeLessThan(montageMinutes(base))
+  })
+})
+
+describe("faults", () => {
+  test("the monitor on the board's HDMI is moved to the graphics card with the power off", () => {
+    const start = startState(grade8FaultHdmi)
+    expect(start.placed.boardHdmi?.part).toBe("monitor")
+    expect(start.placed.gpuHdmi).toBeUndefined()
+    const finished = replay(grade8FaultHdmi, solution(grade8FaultHdmi))
+    expect(finished.placed.gpuHdmi?.part).toBe("monitor")
+    expect(finished.placed.boardHdmi).toBeUndefined()
+    expect(finished.controls.power).toBe("on")
+  })
+
+  test("a cable cannot be fixed before the diagnosis and the power off", () => {
+    const on = apply(grade8FaultHdmi, startState(grade8FaultHdmi), { type: "set", control: "power", value: "on" }).state
+    expect(apply(grade8FaultHdmi, on, { type: "place", part: "monitor", slot: "gpuHdmi", turn: 0 }).result).toBe("question")
+  })
+
+  test("the switched-off power strip is the fault, and switching it on finishes the exercise", () => {
+    const state = replay(grade3FaultStrip, solution(grade3FaultStrip))
+    expect(state.controls).toMatchObject({ power: "on", strip: "on" })
+    expect(isDone(grade3FaultStrip, state)).toBe(true)
   })
 })

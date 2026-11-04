@@ -14,6 +14,7 @@ import {
   keyboard,
   monitor,
   mouse,
+  powerStrip,
   powerSupply,
   printer,
   sataDataPlug,
@@ -132,9 +133,9 @@ export const buildModel = (kind: PartKind, placed: boolean): Group => {
   }
 }
 
-export type DeviceKind = "monitor" | "keyboard" | "mouse" | "speakers" | "printer" | "flashDrive" | "smartphone"
+export type DeviceKind = "monitor" | "keyboard" | "mouse" | "speakers" | "printer" | "flashDrive" | "smartphone" | "powerStrip"
 
-const DEVICES: Record<DeviceKind, () => Group> = { monitor, keyboard, mouse, speakers, printer, flashDrive, smartphone }
+const DEVICES: Record<DeviceKind, () => Group> = { monitor, keyboard, mouse, speakers, printer, flashDrive, smartphone, powerStrip }
 
 /** The device itself, for desk props, baskets and tray pictures. */
 export const deviceModel = (kind: DeviceKind): Group => shadowed(DEVICES[kind]())

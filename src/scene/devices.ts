@@ -280,6 +280,13 @@ export const smartphone = (): Group =>
     box([6.6, 0.05, 13.8], mat("#1b3550", { rough: 0.15, metal: 0.1 }), 0, 0.8, 0)
   )
 
+/** A power strip on the desk with its switch; the computer gets power only when it is on. */
+export const powerStrip = (): Group =>
+  group(
+    rounded([30, 3.6, 5.5], 0.6, mat("#eceff1", { rough: 0.5 }), 0, 0, 0),
+    boxes([3.2, 0.1, 3.2], mat("#cfd4d8", { rough: 0.6 }), [-8, -2.5, 3, 8.5].map((x) => [x, 3.6, 0] as [number, number, number]))
+  )
+
 /** An open crate for sorting devices, with a coloured sign on its front. */
 export const crate = (label: ReadonlyArray<string>, colour: string): Group => {
   const wood = mat(colour, { rough: 0.7 })

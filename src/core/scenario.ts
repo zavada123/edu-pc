@@ -50,6 +50,11 @@ interface StepBase {
   readonly goal?: Goal
   readonly question?: Question
   readonly messages?: StepMessages
+  /**
+   * Where the camera looks while the step's question is open: «result» is the whole computer and its
+   * screen (the layout's finale view), to see a symptom before answering.
+   */
+  readonly look?: "result"
 }
 
 /** Click every listed part to read what it does. */

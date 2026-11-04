@@ -60,7 +60,7 @@ export interface BoxPose {
 
 /** A device standing on the desk for the whole exercise: the monitor, the keyboard, the mouse. */
 export interface PropPose {
-  readonly kind: "monitor" | "keyboard" | "mouse" | "smartphone"
+  readonly kind: "monitor" | "keyboard" | "mouse" | "smartphone" | "powerStrip"
   readonly at: Vec3
   /** Turn around the vertical axis, in radians. */
   readonly yaw?: number
@@ -99,6 +99,13 @@ export interface SceneLayout {
     readonly on: string
     /** The monitor's own button, when it has one: the screen lights only when this is on too. */
     readonly screen?: { readonly control: string; readonly on: string }
+    /** Other controls the computer needs to get power at all: the power strip's switch. */
+    readonly requires?: Readonly<Record<string, string>>
+    /**
+     * Slots that must hold a part for a working picture, and what the screen shows without it:
+     * nothing (no CPU power, the monitor on the wrong socket) or a «disk not found» message.
+     */
+    readonly needs?: ReadonlyArray<{ readonly slot: string; readonly screen: "dark" | "noDisk" }>
   }
   readonly props?: ReadonlyArray<PropPose>
   /** Markers of a data path, by stop id: the USB port, the RAM, the processor. */
@@ -362,10 +369,53 @@ export const grade3DeskLayout: SceneLayout = {
   finale: { at: [-34, 18, -30], distance: 125, view: [0.25, 0.5, 1] }
 }
 
+// ---------- troubleshooting: the built computers, one fault each ----------
+
+const STRIP_AT: Vec3 = [-40, 0, 8]
+
+/** The grade 8 case, built: the picture needs the monitor on the graphics card and power to the processor; the files need the disk's cable. */
+export const grade8FaultLayout: SceneLayout = {
+  ...grade8CaseLayout,
+  power: {
+    control: "power",
+    on: "on",
+    needs: [
+      { slot: "cpuPowerPort", screen: "dark" },
+      { slot: "gpuHdmi", screen: "dark" },
+      { slot: "sataPort", screen: "noDisk" }
+    ]
+  }
+}
+
+/** The grade 3–4 desk, set up, with a power strip: no strip, no power; no monitor cable, no picture. */
+export const grade3FaultLayout: SceneLayout = {
+  ...grade3DeskLayout,
+  boxes: [],
+  props: [{ kind: "powerStrip", at: STRIP_AT }],
+  buttons: [
+    ...(grade3DeskLayout.buttons ?? []),
+    { control: "strip", at: [STRIP_AT[0] + 12, 3.7, STRIP_AT[2]], normal: [0, 1, 0], size: 0.9 }
+  ],
+  power: {
+    control: "power",
+    on: "on",
+    screen: { control: "monitorPower", on: "on" },
+    requires: { strip: "on" },
+    needs: [{ slot: "hdmi", screen: "dark" }]
+  },
+  // the result view takes in the power strip in front, too
+  finale: { at: [-34, 12, -18], distance: 140, view: [0.2, 0.6, 1] }
+}
+
 /** Layouts by scenario id. */
 export const layouts: Readonly<Record<string, SceneLayout>> = {
   "grade8-club-desk": grade8DeskLayout,
   "grade8-club-case": grade8CaseLayout,
   "grade8-club-lab": grade8LabLayout,
-  "grade3-new-box": grade3DeskLayout
+  "grade3-new-box": grade3DeskLayout,
+  "grade8-fault-cpu-power": grade8FaultLayout,
+  "grade8-fault-hdmi": grade8FaultLayout,
+  "grade8-fault-disk": grade8FaultLayout,
+  "grade3-fault-monitor": grade3FaultLayout,
+  "grade3-fault-strip": grade3FaultLayout
 }
