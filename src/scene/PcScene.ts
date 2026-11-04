@@ -1,5 +1,6 @@
 import {
   ACESFilmicToneMapping,
+  Box3,
   BoxGeometry,
   type CanvasTexture,
   Color,
@@ -21,6 +22,7 @@ import {
   PMREMGenerator,
   Raycaster,
   Scene,
+  Sphere,
   SphereGeometry,
   Sprite,
   SpriteMaterial,
@@ -89,16 +91,30 @@ const WIDE_SHOT = 60
 const WIDE_ASPECT = 1.3
 const HOLD_HEIGHT = 5
 const SPIN_PER_FRAME = 0.45
-const MARKER_COLOR = new Color("#2563eb")
-const DONE_COLOR = new Color("#16a34a")
-const PACKET_COLOR = new Color("#fde047")
+// Colours of the marks the scene draws over the models come from the EduProstir palette (ui/tokens.css).
+const MARKER_COLOR = new Color("#e0185c")
+const DONE_COLOR = new Color("#14874a")
+const PACKET_COLOR = new Color("#ffd15c")
 const PACKET_MS_PER_LEG = 700
 /** Width of a marker's label, in centimetres. */
 const LABEL_W = 9
 const QUARTER = Math.PI / 2
 const LEVER_UP = 1.35
-const HINT_COLOR = new Color("#ffc94d")
+const HINT_COLOR = new Color("#ffc247")
 const ACCEPT_COLOR = new Color("#ffffff")
+/** The slot under the pointer. */
+const HOVER_COLOR = new Color("#ff6696")
+/** How close two tags with the same name may stand on the screen before one hides: four USB ports get one tag. */
+const SAME_TAG_PX = 56
+/** Tags that would cover each other go up a row, up to this many rows; the rest hide. */
+const TAG_ROWS = 3
+const TAG_ROW_PX = 24
+const TAG_GAP_PX = 4
+/** The note by the pointer keeps this far from the pointer and from the edge of the view. */
+const TIP_OFFSET_PX = 16
+const TIP_EDGE_PX = 8
+/** A part in hand stays this far in front of the model it would go into. */
+const HOLD_GAP = 1.5
 
 /** Kinds that sit on a desk as a whole device: an opened box shows one of them. */
 const DEVICE_KINDS: ReadonlySet<string> = new Set<DeviceKind>(["monitor", "keyboard", "mouse", "speakers", "printer", "flashDrive"])
@@ -133,7 +149,7 @@ export class PcScene implements SceneHandle {
   private spinners: Object3D[] | null = null
   private readonly areas: SlotArea[] = []
   private readonly placedMeshes = new Map<string, { slot: string; mesh: Group }>()
-  private heldMesh: { part: string; mesh: Group } | null = null
+  private heldMesh: { part: string; mesh: Group; reach: number } | null = null
   private readonly ray = new Raycaster()
   private readonly pointer = new Vector2()
   private readonly holdHeight: number
@@ -149,6 +165,13 @@ export class PcScene implements SceneHandle {
   private focusFrom = new Vector3()
   private focusing = 0
   private readonly resize: ResizeObserver
+  /** Name tags of the slots, over the canvas, and the note by the pointer. */
+  private readonly tagLayer: HTMLDivElement
+  private readonly tags = new Map<string, HTMLDivElement>()
+  private readonly tip: HTMLDivElement
+  private hovered: string | null = null
+  private hoverAt: { x: number; y: number } | null = null
+  private allTags = false
 
   constructor(
     private readonly host: HTMLElement,
@@ -169,11 +192,19 @@ export class PcScene implements SceneHandle {
     this.renderer.shadowMap.type = PCFShadowMap
     this.renderer.domElement.className = "edu-pc-canvas"
     host.appendChild(this.renderer.domElement)
+    this.tagLayer = document.createElement("div")
+    this.tagLayer.className = "edu-pc-tags"
+    this.tagLayer.setAttribute("aria-hidden", "true")
+    this.tip = document.createElement("div")
+    this.tip.className = "edu-pc-tip"
+    this.tip.hidden = true
+    this.tagLayer.appendChild(this.tip)
+    host.appendChild(this.tagLayer)
 
     const pmrem = new PMREMGenerator(this.renderer)
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
     pmrem.dispose()
-    this.scene.background = new Color("#262a30")
+    this.scene.background = new Color("#30272e")
     this.scene.add(new HemisphereLight("#ffffff", "#5a4a3a", 0.6))
     const sun = new DirectionalLight("#ffffff", 1.6)
     sun.position.set(-20, 40, 25)
@@ -227,6 +258,7 @@ export class PcScene implements SceneHandle {
       device.position.set(...prop.at)
       device.rotation.y = prop.yaw ?? 0
       this.propScreens.push(...screensOf(device))
+      device.userData.prop = true
       this.scene.add(device)
     }
     this.screens = [...this.propScreens]
@@ -245,6 +277,7 @@ export class PcScene implements SceneHandle {
     el.addEventListener("pointerdown", this.onDown)
     el.addEventListener("pointermove", this.onMove)
     el.addEventListener("pointerup", this.onUp)
+    el.addEventListener("pointerleave", this.onLeave)
     this.resize = new ResizeObserver(() => this.fit())
     this.resize.observe(host)
     this.fit()
@@ -258,6 +291,11 @@ export class PcScene implements SceneHandle {
     this.syncHeld()
     this.syncDesk()
     this.syncPath()
+  }
+
+  /** Name tags over every slot (on), or only over the slots that matter now: the hint and where the part in hand fits (off). */
+  showAllTags(on: boolean): void {
+    this.allTags = on
   }
 
   /** Glides the camera to look at a point from a comfortable distance and direction; farther on a narrow screen. */
@@ -326,6 +364,8 @@ export class PcScene implements SceneHandle {
     el.removeEventListener("pointerdown", this.onDown)
     el.removeEventListener("pointermove", this.onMove)
     el.removeEventListener("pointerup", this.onUp)
+    el.removeEventListener("pointerleave", this.onLeave)
+    this.tagLayer.remove()
     this.controls.dispose()
     this.scene.traverse((obj) => {
       if (obj instanceof Mesh || obj instanceof LineSegments) {
@@ -354,6 +394,22 @@ export class PcScene implements SceneHandle {
     edges.position.copy(mesh.position)
     this.bench.add(mesh, edges)
     this.areas.push({ id, mesh, edges, accepts })
+    const tag = document.createElement("div")
+    tag.className = "edu-pc-tag"
+    tag.textContent = this.scenario.slots.find((s) => s.id === id)?.tag ?? this.slotLabel(id)
+    tag.hidden = true
+    this.tagLayer.appendChild(tag)
+    this.tags.set(id, tag)
+  }
+
+  private slotLabel(id: string): string {
+    return this.scenario.slots.find((s) => s.id === id)?.label ?? id
+  }
+
+  /** The parts of this scenario a slot takes, by name: what the note under the pointer says goes there. */
+  private takes(accepts: ReadonlyArray<string>): string {
+    const names = [...new Set(this.scenario.parts.filter((p) => accepts.includes(p.kind)).map((p) => p.name))]
+    return names.join(", ")
   }
 
   private kindOf(partId: string): string | undefined {
@@ -431,7 +487,7 @@ export class PcScene implements SceneHandle {
       marker.position.set(...at)
       marker.userData.stop = stop.id
       marker.add(onTop(new Mesh(new SphereGeometry(1.1, 20, 14), new MeshBasicMaterial({ color: done ? DONE_COLOR : MARKER_COLOR }))))
-      const label = onTop(new Sprite(new SpriteMaterial({ map: signTexture([stop.label], done ? "#15803d" : "#1d4ed8", "#ffffff") })))
+      const label = onTop(new Sprite(new SpriteMaterial({ map: signTexture([stop.label], done ? "#116b3c" : "#ba0f4b", "#ffffff") })))
       label.scale.set(LABEL_W, LABEL_W / 4, 1)
       label.position.y = 2.6
       marker.add(label)
@@ -471,7 +527,9 @@ export class PcScene implements SceneHandle {
       if (part) {
         const mesh = buildModel(part.kind, false)
         this.scene.add(mesh)
-        this.heldMesh = { part: held.part, mesh }
+        // how far the model reaches from its origin: that much room it needs in front of a wall
+        const reach = new Box3().setFromObject(mesh).getBoundingSphere(new Sphere()).radius
+        this.heldMesh = { part: held.part, mesh, reach }
       }
     }
   }
@@ -514,12 +572,13 @@ export class PcScene implements SceneHandle {
     for (const area of this.areas) {
       const accepts = heldKind !== undefined && area.accepts.includes(heldKind)
       const hinted = hintSlots.has(area.id) && (held === null || accepts)
+      const hover = this.hovered === area.id
       const fill = area.mesh.material as MeshBasicMaterial
       const line = area.edges.material as LineBasicMaterial
-      fill.color.copy(hinted ? HINT_COLOR : ACCEPT_COLOR)
+      fill.color.copy(hover ? HOVER_COLOR : hinted ? HINT_COLOR : ACCEPT_COLOR)
       line.color.copy(fill.color)
-      fill.opacity = hinted ? 0.12 + 0.18 * pulse : accepts ? 0.06 : 0
-      line.opacity = hinted ? 0.5 + 0.5 * pulse : accepts ? 0.35 : 0
+      fill.opacity = hover ? 0.28 : hinted ? 0.12 + 0.18 * pulse : accepts ? 0.06 : 0
+      line.opacity = hover ? 1 : hinted ? 0.5 + 0.5 * pulse : accepts ? 0.35 : 0
     }
     if (this.lever && this.layout.lever) {
       const up = this.view.controls[this.layout.lever.control] === this.layout.lever.upValue
@@ -539,7 +598,7 @@ export class PcScene implements SceneHandle {
     if (this.heldMesh && held) {
       const m = this.heldMesh.mesh
       m.position.lerp(this.holdAt, 0.35)
-      m.position.y = this.holdHeight + Math.sin(time / 400) * 0.15
+      m.position.y = this.holdAt.y + Math.sin(time / 400) * 0.15
       m.rotation.y += (-held.turn * QUARTER - m.rotation.y) * 0.25
     }
     if (this.focusing > 0) {
@@ -549,6 +608,114 @@ export class PcScene implements SceneHandle {
     }
     this.controls.update()
     this.renderer.render(this.scene, this.camera)
+    this.syncTags(hintSlots, heldKind)
+  }
+
+  /**
+   * Name tags over the slots: where the part in hand fits, the next target, the slot under the pointer, or
+   * every slot when the student asks. A tag with the same name close by on the screen stays hidden.
+   */
+  private syncTags(hintSlots: ReadonlySet<string>, heldKind: string | undefined): void {
+    const w = this.renderer.domElement.clientWidth
+    const h = this.renderer.domElement.clientHeight
+    const p = new Vector3()
+    const wanted: Array<{ id: string; tag: HTMLDivElement; x: number; y: number; rank: number; fits: boolean }> = []
+    for (const area of this.areas) {
+      const tag = this.tags.get(area.id)
+      const pose = this.layout.slots[area.id]
+      if (!tag || !pose) continue
+      const occupant = this.view.placed[area.id]?.part
+      const free = occupant === undefined || occupant === this.view.held?.part
+      const fits = heldKind !== undefined && area.accepts.includes(heldKind) && free
+      const hover = this.hovered === area.id
+      const hint = hintSlots.has(area.id)
+      const want = hover || fits || (heldKind === undefined && (hint || (this.allTags && free)))
+      p.set(pose.at[0], pose.at[1] + pose.area[1] - 0.3, pose.at[2])
+      this.bench.localToWorld(p)
+      p.project(this.camera)
+      const x = ((p.x + 1) / 2) * w
+      const y = ((1 - p.y) / 2) * h
+      const onScreen = p.z < 1 && x > -40 && x < w + 40 && y > -20 && y < h + 20
+      if (!want || !onScreen) {
+        tag.hidden = true
+        continue
+      }
+      // the slot under the pointer first, then the targets, then the rest: the first ones keep their place
+      wanted.push({ id: area.id, tag, x, y, rank: hover ? 0 : fits || hint ? 1 : 2, fits })
+    }
+    wanted.sort((a, b) => a.rank - b.rank)
+    const placed: Array<{ text: string; x: number; y: number; left: number; right: number; row: number }> = []
+    for (const item of wanted) {
+      const { tag, x, y } = item
+      const text = tag.textContent ?? ""
+      if (item.rank > 0 && placed.some((o) => o.text === text && Math.hypot(o.x - x, o.y - y) < SAME_TAG_PX)) {
+        tag.hidden = true
+        continue
+      }
+      tag.hidden = false
+      // the width is read once: the text of a tag never changes
+      const width = Number(tag.dataset.width) || tag.offsetWidth
+      tag.dataset.width = String(width)
+      const left = x - width / 2 - TAG_GAP_PX
+      const right = x + width / 2 + TAG_GAP_PX
+      const row = [...Array(TAG_ROWS).keys()].find(
+        (r) => !placed.some((o) => o.row === r && Math.abs(o.y - y) < TAG_ROW_PX && o.left < right && left < o.right)
+      )
+      if (row === undefined) {
+        tag.hidden = true
+        continue
+      }
+      placed.push({ text, x, y, left, right, row })
+      tag.style.transform = `translate(${x.toFixed(1)}px, ${(y - row * TAG_ROW_PX).toFixed(1)}px) translate(-50%, -100%)`
+      tag.classList.toggle("is-raised", row > 0)
+      tag.classList.toggle("is-fit", item.fits)
+      tag.classList.toggle("is-hint", hintSlots.has(item.id) && !item.fits)
+      tag.classList.toggle("is-hover", this.hovered === item.id)
+    }
+    this.syncTip(heldKind, w, h)
+  }
+
+  /** The note by the pointer: the slot's name, what goes there and whether the part in hand fits. */
+  private syncTip(heldKind: string | undefined, w: number, h: number): void {
+    const area = this.areas.find((a) => a.id === this.hovered)
+    if (!area || !this.hoverAt) {
+      this.tip.hidden = true
+      return
+    }
+    const occupant = this.view.placed[area.id]?.part
+    const taken = occupant !== undefined && occupant !== this.view.held?.part
+    const fits = heldKind !== undefined && area.accepts.includes(heldKind)
+    const verdict =
+      heldKind === undefined ? "" : taken ? "Тут уже стоїть деталь" : fits ? "Сюди підходить те, що в руці" : "Те, що в руці, сюди не підходить"
+    const key = `${area.id}|${verdict}`
+    if (this.tip.dataset.key !== key) {
+      this.tip.dataset.key = key
+      this.tip.replaceChildren()
+      const name = document.createElement("b")
+      name.textContent = this.slotLabel(area.id)
+      this.tip.appendChild(name)
+      const what = this.takes(area.accepts)
+      if (what) {
+        const line = document.createElement("span")
+        line.textContent = `Для: ${what}`
+        this.tip.appendChild(line)
+      }
+      if (verdict) {
+        const line = document.createElement("span")
+        line.className = fits && !taken ? "is-yes" : "is-no"
+        line.textContent = verdict
+        this.tip.appendChild(line)
+      }
+    }
+    this.tip.hidden = false
+    // beside the pointer, on the side where it fits in the view
+    const tw = this.tip.offsetWidth
+    const th = this.tip.offsetHeight
+    const right = this.hoverAt.x + TIP_OFFSET_PX
+    const below = this.hoverAt.y + TIP_OFFSET_PX
+    const x = right + tw + TIP_EDGE_PX > w ? Math.max(TIP_EDGE_PX, this.hoverAt.x - TIP_OFFSET_PX - tw) : right
+    const y = below + th + TIP_EDGE_PX > h ? Math.max(TIP_EDGE_PX, this.hoverAt.y - TIP_OFFSET_PX - th) : below
+    this.tip.style.transform = `translate(${x.toFixed(0)}px, ${y.toFixed(0)}px)`
   }
 
   private poweredOn(): boolean {
@@ -621,6 +788,35 @@ export class PcScene implements SceneHandle {
     return free?.[0] ?? slot
   }
 
+  /**
+   * The slot area the ray points at. Areas overlap: the socket, the paste and the cooler share one spot, and
+   * seen at an angle a tall RAM slot's box covers its neighbour. Prefer areas that take the held part, then
+   * the one whose centre is closest to the ray, so a tap lands on the slot the student aimed at.
+   */
+  private slotHit(): ReturnType<Raycaster["intersectObjects"]>[number] | undefined {
+    const hits = this.ray.intersectObjects(this.areas.map((a) => a.mesh), false)
+    const heldKind = this.view.held ? this.kindOf(this.view.held.part) : undefined
+    const fits = (id: unknown) => this.areas.some((a) => a.id === id && heldKind !== undefined && a.accepts.includes(heldKind))
+    const candidates = hits.some((h) => fits(h.object.userData.slot)) ? hits.filter((h) => fits(h.object.userData.slot)) : hits
+    const centre = new Vector3()
+    const off = (h: (typeof hits)[number]) => this.ray.ray.distanceToPoint(h.object.getWorldPosition(centre))
+    return candidates.reduce<(typeof hits)[number] | undefined>((best, h) => (!best || off(h) < off(best) ? h : best), undefined)
+  }
+
+  /**
+   * Where the part in hand floats: over the desk at the hold height, but in front of a model the pointer
+   * is on that rises above it, so a cable held at the standing system unit does not go into it.
+   */
+  private moveHeld(): void {
+    const onPlane = this.ray.ray.intersectPlane(this.holdPlane, new Vector3())
+    const solid: Object3D[] = [this.benchModel, ...this.scene.children.filter((o) => o.userData.prop === true)]
+    const hit = this.ray.intersectObjects(solid, true).find((h) => h.object.visible)
+    const reach = onPlane ? this.ray.ray.origin.distanceTo(onPlane) : Infinity
+    const gap = HOLD_GAP + (this.heldMesh?.reach ?? 0)
+    if (hit && hit.distance < reach) this.holdAt.copy(this.ray.ray.at(Math.max(0, hit.distance - gap), new Vector3()))
+    else if (onPlane) this.holdAt.copy(onPlane)
+  }
+
   private setPointer(e: PointerEvent): void {
     const r = this.renderer.domElement.getBoundingClientRect()
     this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
@@ -634,9 +830,20 @@ export class PcScene implements SceneHandle {
   private readonly onMove = (e: PointerEvent): void => {
     // turning the view by hand stops the automatic camera glide; a plain tap does not
     if (this.down && Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > CLICK_PX) this.focusing = 0
-    if (!this.view.held) return
     this.setPointer(e)
-    this.ray.ray.intersectPlane(this.holdPlane, this.holdAt)
+    // a finger has no hover: the tags over the fitting slots show the names instead
+    const hit = e.pointerType === "touch" || this.down ? undefined : this.slotHit()
+    const slot = hit?.object.userData.slot
+    this.hovered = typeof slot === "string" ? slot : null
+    const r = this.renderer.domElement.getBoundingClientRect()
+    this.hoverAt = this.hovered ? { x: e.clientX - r.left, y: e.clientY - r.top } : null
+    this.renderer.domElement.style.cursor = this.hovered && this.view.held ? "pointer" : ""
+    if (this.view.held) this.moveHeld()
+  }
+
+  private readonly onLeave = (): void => {
+    this.hovered = null
+    this.hoverAt = null
   }
 
   private readonly onUp = (e: PointerEvent): void => {
@@ -645,19 +852,10 @@ export class PcScene implements SceneHandle {
     if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > CLICK_PX) return
     this.setPointer(e)
     if (this.view.held) {
-      // Areas overlap: the socket, the paste and the cooler share one spot, and seen at an angle a tall
-      // RAM slot's box covers its neighbour. Prefer areas that take the held part, then the one whose
-      // centre is closest to the ray, so a tap lands on the slot the student aimed at.
-      const hits = this.ray.intersectObjects(this.areas.map((a) => a.mesh), false)
-      const heldKind = this.kindOf(this.view.held.part)
-      const fits = (id: unknown) => this.areas.some((a) => a.id === id && heldKind !== undefined && a.accepts.includes(heldKind))
-      const candidates = hits.some((h) => fits(h.object.userData.slot)) ? hits.filter((h) => fits(h.object.userData.slot)) : hits
-      const centre = new Vector3()
-      const off = (h: (typeof hits)[number]) => this.ray.ray.distanceToPoint(h.object.getWorldPosition(centre))
-      const hit = candidates.reduce<(typeof hits)[number] | undefined>((best, h) => (!best || off(h) < off(best) ? h : best), undefined)
+      const hit = this.slotHit()
       const slot = this.freeInGroup(hit?.object.userData.slot)
       if (typeof slot === "string") {
-        this.holdAt.copy(hit?.point ?? this.holdAt)
+        if (hit) this.holdAt.copy(hit.point)
         this.events.onSlot(slot)
       }
       return

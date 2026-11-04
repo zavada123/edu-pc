@@ -19,6 +19,6 @@ export declare const iconModel: (kind: PartKind) => Group;
 export declare const placedModel: (kind: PartKind, pose: SlotPose, turn: number) => Group;
 /**
  * The finished computer from the grade 8 case scenario, without the graphics card, standing upright
- * with its glass side to the right: the system unit of the grade 3–4 desk. The monitor goes into the board's HDMI.
+ * with its front to the student (see `standing`): the system unit of the grade 3–4 desk. The monitor goes into the board's HDMI.
  */
 export declare const systemUnit: () => Group;

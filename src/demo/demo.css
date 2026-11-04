@@ -4,3 +4,25 @@ body,
   height: 100%;
   margin: 0;
 }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.demo-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1200px;
+  height: auto;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+#root:has(.demo-page) {
+  height: auto;
+}
+.demo-trainer {
+  height: min(85dvh, 760px);
+  min-height: 560px;
+  overflow: hidden;
+  border: 1px solid #e6dde2;
+  border-radius: 12px;
+}

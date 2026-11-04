@@ -1,0 +1,199 @@
+/* Task cards grouped by grade. Classes start with `edu-pc-cat-` so the catalog can live inside any page; colors from tokens.css. */
+
+.edu-pc-cat {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  color: var(--edu-ink-900);
+  font-family: inherit;
+}
+
+.edu-pc-cat *,
+.edu-pc-cat *::before,
+.edu-pc-cat *::after {
+  box-sizing: border-box;
+}
+
+.edu-pc-cat-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.edu-pc-cat-count {
+  margin: 0;
+  font-weight: 700;
+}
+
+.edu-pc-cat-bar {
+  flex: 0 1 200px;
+  height: 8px;
+  overflow: hidden;
+  background: var(--edu-ink-200);
+  border-radius: 4px;
+}
+
+.edu-pc-cat-bar span {
+  display: block;
+  height: 100%;
+  background: var(--edu-green-500);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.edu-pc-cat-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edu-pc-cat-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.edu-pc-cat .edu-pc-cat-head h3 {
+  margin: 0;
+  font-size: 1.1em;
+  font-weight: 800;
+}
+
+.edu-pc-cat-progress {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--edu-ink-600);
+}
+
+.edu-pc-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.edu-pc-cat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 140px;
+  padding: 12px 14px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: var(--edu-ink-0);
+  border: 1.5px solid var(--edu-ink-200);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--edu-ink-900) 4%, transparent);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.edu-pc-cat-card:hover,
+.edu-pc-cat-card:focus-visible {
+  border-color: var(--edu-pink-300);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--edu-pink-600) 12%, transparent);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.edu-pc-cat-card.is-current {
+  border-color: var(--edu-pink-600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--edu-pink-600) 18%, transparent);
+}
+
+.edu-pc-cat-card.is-done {
+  background: var(--edu-green-50);
+}
+
+.edu-pc-cat-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.edu-pc-cat-num {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--edu-pink-700);
+  background: var(--edu-pink-50);
+  border-radius: 7px;
+}
+
+.edu-pc-cat-topic {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: 999px;
+}
+
+.edu-pc-cat-topic.is-build {
+  color: var(--edu-pink-700);
+  background: var(--edu-pink-50);
+}
+
+.edu-pc-cat-topic.is-connect {
+  color: var(--edu-blue-600);
+  background: var(--edu-blue-50);
+}
+
+.edu-pc-cat-topic.is-explore {
+  color: var(--edu-amber-800);
+  background: var(--edu-amber-100);
+}
+
+.edu-pc-cat-topic.is-fault {
+  color: var(--edu-red-700);
+  background: var(--edu-red-50);
+}
+
+.edu-pc-cat-done {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--edu-ink-0);
+  background: var(--edu-green-600);
+  border-radius: 50%;
+}
+
+.edu-pc-cat-title {
+  font-size: 1em;
+  line-height: 1.3;
+}
+
+.edu-pc-cat-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.85em;
+  line-height: 1.4;
+  color: var(--edu-ink-600);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.edu-pc-cat-steps {
+  margin-top: auto;
+  padding: 1px 7px;
+  font-size: 12px;
+  color: var(--edu-ink-700);
+  background: var(--edu-ink-50);
+  border: 1px solid var(--edu-ink-200);
+  border-radius: 6px;
+}

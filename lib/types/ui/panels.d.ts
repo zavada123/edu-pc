@@ -41,10 +41,11 @@ export declare const PartInfo: ({ part, onClose }: {
 export declare const ToastLine: ({ toast }: {
     toast: Toast | null;
 }) => import("react").JSX.Element | null;
-export declare const DoneCard: ({ result, goals, onRestart }: {
+export declare const DoneCard: ({ result, goals, onRestart, onNext }: {
     result: Report;
     goals: Readonly<Partial<Record<string, string>>>;
     onRestart: () => void;
+    onNext?: (() => void) | undefined;
 }) => import("react").JSX.Element;
 /**
  * Cards to buy on an upgrade step. The student picks within the budget and checks: the time after the

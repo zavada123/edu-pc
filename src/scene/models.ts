@@ -178,8 +178,11 @@ const cableTube = (plug: Group, kind: PartKind, to: Vector3): Mesh | null => {
   // a cable down to a device on the desk hangs behind the system unit and runs along the desk;
   // inside the case it arcs over the parts
   const toDesk = start.y - to.y > DROP
+  // it hangs down on the side the plug faces: behind the system unit, whichever way that is
+  const away = new Vector3(lead.x - start.x, 0, lead.z - start.z)
+  if (away.lengthSq() > 0.01) away.setLength(3)
   const mid = toDesk
-    ? new Vector3(lead.x, to.y + look.r, lead.z + 3)
+    ? new Vector3(lead.x + away.x, to.y + look.r, lead.z + away.z)
     : new Vector3((lead.x + to.x) / 2, Math.max(start.y, to.y) + 2, (lead.z + to.z) / 2)
   const points = toDesk ? [start, lead, mid, new Vector3((mid.x + to.x) / 2, to.y + look.r, (mid.z + to.z) / 2), to] : [start, lead, mid, to]
   const tube = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 64, look.r, 10), mat(look.color, { rough: 0.7 }))
@@ -198,7 +201,7 @@ const fitInto = (model: Group, area: SlotPose["area"]): void => {
 export const placedModel = (kind: PartKind, pose: SlotPose, turn: number): Group => {
   const model = buildModel(kind, true)
   model.position.set(...pose.at)
-  model.rotation.set(0, (-turn * Math.PI) / 2, pose.roll ?? 0, "YXZ")
+  model.rotation.set(0, (-turn * Math.PI) / 2 + (pose.yaw ?? 0), pose.roll ?? 0, "YXZ")
   if (pose.fit) fitInto(model, pose.area)
   const g = new Group()
   g.add(model)
@@ -212,7 +215,7 @@ export const placedModel = (kind: PartKind, pose: SlotPose, turn: number): Group
 
 /**
  * The finished computer from the grade 8 case scenario, without the graphics card, standing upright
- * with its glass side to the right: the system unit of the grade 3–4 desk. The monitor goes into the board's HDMI.
+ * with its front to the student (see `standing`): the system unit of the grade 3–4 desk. The monitor goes into the board's HDMI.
  */
 export const systemUnit = (): Group => {
   const inside = new Group()
@@ -225,11 +228,13 @@ export const systemUnit = (): Group => {
     const turn = grade8Case.slots.find((s) => s.id === slot)?.turn ?? 0
     inside.add(placedModel(kind, pose, turn))
   }
-  // stand it up: the case's top (-x) goes up, its open side (+y) to the right
+  // stand it up: the case's top (-x) goes up, its open side (+y) to the right; then turn it half round, front to the student
   inside.rotation.z = -Math.PI / 2
-  inside.position.set(TOWER_AT[0], CASE_SIZE[0] / 2, TOWER_AT[2])
+  inside.position.set(0, CASE_SIZE[0] / 2, 0)
   const g = new Group()
   g.add(inside)
+  g.position.set(TOWER_AT[0], 0, TOWER_AT[2])
+  g.rotation.y = Math.PI
   return g
 }
 

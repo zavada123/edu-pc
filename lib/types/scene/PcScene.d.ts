@@ -92,9 +92,18 @@ export declare class PcScene implements SceneHandle {
     private focusFrom;
     private focusing;
     private readonly resize;
+    /** Name tags of the slots, over the canvas, and the note by the pointer. */
+    private readonly tagLayer;
+    private readonly tags;
+    private readonly tip;
+    private hovered;
+    private hoverAt;
+    private allTags;
     constructor(host: HTMLElement, scenario: Scenario, layout: SceneLayout, events: SceneEvents, light?: boolean);
     /** Shows a new view: placed parts, the lever, the part in hand and the highlighted slots. */
     update(view: SceneView): void;
+    /** Name tags over every slot (on), or only over the slots that matter now: the hint and where the part in hand fits (off). */
+    showAllTags(on: boolean): void;
     /** Glides the camera to look at a point from a comfortable distance and direction; farther on a narrow screen. */
     focus(at: Vec3, distance?: number, view?: Vec3): void;
     /**
@@ -110,6 +119,9 @@ export declare class PcScene implements SceneHandle {
     icons(kinds: ReadonlyArray<PartKind>): Partial<Record<PartKind, string>>;
     dispose(): void;
     private addArea;
+    private slotLabel;
+    /** The parts of this scenario a slot takes, by name: what the note under the pointer says goes there. */
+    private takes;
     private kindOf;
     private syncPlaced;
     /** A closed box on the desk, and the device it holds once opened. */
@@ -125,6 +137,13 @@ export declare class PcScene implements SceneHandle {
     /** A light runs along the laid path, over and over: the data on its way. */
     private animatePath;
     private readonly frame;
+    /**
+     * Name tags over the slots: where the part in hand fits, the next target, the slot under the pointer, or
+     * every slot when the student asks. A tag with the same name close by on the screen stays hidden.
+     */
+    private syncTags;
+    /** The note by the pointer: the slot's name, what goes there and whether the part in hand fits. */
+    private syncTip;
     private poweredOn;
     /** What the screen shows with the power on: the desktop, nothing, or «disk not found» when a needed part is missing. */
     private picture;
@@ -136,8 +155,20 @@ export declare class PcScene implements SceneHandle {
     private animatePower;
     /** A tap on a full spot of a basket (or a taken USB port) means the basket: the first free spot of its group. */
     private freeInGroup;
+    /**
+     * The slot area the ray points at. Areas overlap: the socket, the paste and the cooler share one spot, and
+     * seen at an angle a tall RAM slot's box covers its neighbour. Prefer areas that take the held part, then
+     * the one whose centre is closest to the ray, so a tap lands on the slot the student aimed at.
+     */
+    private slotHit;
+    /**
+     * Where the part in hand floats: over the desk at the hold height, but in front of a model the pointer
+     * is on that rises above it, so a cable held at the standing system unit does not go into it.
+     */
+    private moveHeld;
     private setPointer;
     private readonly onDown;
     private readonly onMove;
+    private readonly onLeave;
     private readonly onUp;
 }

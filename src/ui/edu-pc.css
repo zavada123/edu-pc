@@ -1,13 +1,18 @@
 .edu-pc {
-  --pc-bg: #f4f5f7;
-  --pc-panel: #ffffff;
-  --pc-ink: #1d2329;
-  --pc-muted: #5c6670;
-  --pc-line: #dde1e6;
-  --pc-accent: #1d4ed8;
-  --pc-ok: #15803d;
-  --pc-err: #b91c1c;
-  --pc-hint: #f5b40b;
+  /* Every color comes from the EduProstir palette (tokens.css). */
+  --pc-bg: var(--edu-ink-50);
+  --pc-panel: var(--edu-ink-0);
+  --pc-ink: var(--edu-ink-900);
+  --pc-muted: var(--edu-ink-600);
+  --pc-line: var(--edu-ink-200);
+  --pc-accent: var(--edu-pink-700);
+  --pc-accent-soft: var(--edu-pink-50);
+  --pc-ok: var(--edu-green-600);
+  --pc-ok-soft: var(--edu-green-50);
+  --pc-err: var(--edu-red-600);
+  --pc-err-soft: var(--edu-red-50);
+  --pc-hint: var(--edu-amber-400);
+  --pc-shadow: color-mix(in srgb, var(--edu-ink-950) 25%, transparent);
   position: relative;
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -17,7 +22,9 @@
   min-height: 560px;
   background: var(--pc-bg);
   color: var(--pc-ink);
-  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.45;
   overflow: hidden;
 }
 .edu-pc *,
@@ -49,7 +56,7 @@
   margin-right: 8px;
   padding: 1px 8px;
   border-radius: 999px;
-  background: #e8eefc;
+  background: var(--pc-accent-soft);
   color: var(--pc-accent);
   font-size: 13px;
 }
@@ -76,8 +83,8 @@
   margin-bottom: 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #fff8e6;
-  color: #5a4300;
+  background: var(--edu-amber-50);
+  color: var(--edu-amber-900);
 }
 .edu-pc-story p {
   margin: 0 0 6px;
@@ -96,7 +103,7 @@
   color: var(--pc-muted);
 }
 .edu-pc-step.is-current {
-  background: #e8eefc;
+  background: var(--pc-accent-soft);
   color: var(--pc-ink);
   font-weight: 600;
 }
@@ -115,17 +122,17 @@
 }
 .edu-pc-step.is-done .edu-pc-step-mark {
   background: var(--pc-ok);
-  color: #fff;
+  color: var(--edu-ink-0);
 }
 .edu-pc-step.is-current .edu-pc-step-mark {
   background: var(--pc-accent);
-  color: #fff;
+  color: var(--edu-ink-0);
 }
 .edu-pc-step-mistakes {
   margin-left: auto;
   padding: 0 7px;
   border-radius: 999px;
-  background: #fde2e2;
+  background: var(--pc-err-soft);
   color: var(--pc-err);
   font-size: 12px;
 }
@@ -150,8 +157,8 @@
   max-width: 380px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--edu-ink-0) 95%, transparent);
+  box-shadow: 0 6px 24px var(--pc-shadow);
 }
 .edu-pc-card {
   top: 12px;
@@ -202,9 +209,9 @@
   padding: 10px 14px;
   border-radius: 10px;
   transform: translateX(-50%);
-  color: #fff;
-  background: #334155;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  color: var(--edu-ink-0);
+  background: var(--edu-ink-800);
+  box-shadow: 0 6px 20px var(--pc-shadow);
   animation: edu-pc-toast 4.5s ease forwards;
   /* a message must never swallow a tap meant for the board under it */
   pointer-events: none;
@@ -243,17 +250,17 @@
   padding: 8px 10px;
   border: 2px solid var(--pc-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--pc-panel);
   color: var(--pc-ink);
   font-size: 13px;
   text-align: center;
 }
 .edu-pc-part:hover {
-  border-color: #a9b4c2;
+  border-color: var(--edu-pink-300);
 }
 .edu-pc-part.is-hint {
   border-color: var(--pc-hint);
-  box-shadow: 0 0 0 3px rgba(245, 180, 11, 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--edu-amber-400) 30%, transparent);
 }
 .edu-pc-part.is-held {
   border-color: var(--pc-accent);
@@ -272,15 +279,15 @@
   width: 34px;
   height: 22px;
   border-radius: 4px;
-  background: #4a5058;
+  background: var(--edu-ink-600);
 }
-.edu-pc-part-icon.kind-cpu { background: linear-gradient(135deg, #d9dde1, #a9afb5); width: 24px; height: 24px; }
-.edu-pc-part-icon.kind-ram { background: #1f5e3a; height: 10px; border-bottom: 3px solid #d4af37; }
-.edu-pc-part-icon.kind-m2ssd { background: #2b6cb0; height: 10px; }
-.edu-pc-part-icon.kind-cooler { background: repeating-linear-gradient(90deg, #c7ccd1 0 3px, #8b929a 3px 5px); }
-.edu-pc-part-icon.kind-thermalPaste { background: #9aa0a6; height: 10px; border-radius: 6px; }
-.edu-pc-part-icon.kind-fanCable { background: #16181b; width: 14px; }
-.edu-pc-part-icon.kind-motherboard { background: #1f2a26; }
+.edu-pc-part-icon.kind-cpu { background: linear-gradient(135deg, var(--edu-ink-200), var(--edu-ink-400)); width: 24px; height: 24px; }
+.edu-pc-part-icon.kind-ram { background: var(--edu-green-700); height: 10px; border-bottom: 3px solid var(--edu-amber-500); }
+.edu-pc-part-icon.kind-m2ssd { background: var(--edu-blue-600); height: 10px; }
+.edu-pc-part-icon.kind-cooler { background: repeating-linear-gradient(90deg, var(--edu-ink-300) 0 3px, var(--edu-ink-500) 3px 5px); }
+.edu-pc-part-icon.kind-thermalPaste { background: var(--edu-ink-400); height: 10px; border-radius: 6px; }
+.edu-pc-part-icon.kind-fanCable { background: var(--edu-ink-950); width: 14px; }
+.edu-pc-part-icon.kind-motherboard { background: var(--edu-ink-800); }
 
 .edu-pc-held {
   display: flex;
@@ -297,7 +304,7 @@
   padding: 8px 16px;
   border: 1px solid var(--pc-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--pc-panel);
   color: var(--pc-ink);
 }
 .edu-pc-held button:hover,
@@ -312,14 +319,14 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(15, 20, 25, 0.45);
+  background: color-mix(in srgb, var(--edu-ink-950) 45%, transparent);
 }
 .edu-pc-question {
   width: min(460px, 100%);
   padding: 18px;
   border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  background: var(--pc-panel);
+  box-shadow: 0 12px 40px var(--pc-shadow);
 }
 .edu-pc-question h2 {
   margin: 4px 0 12px;
@@ -346,7 +353,7 @@
 }
 .edu-pc-offer.is-chosen {
   border-color: var(--pc-accent);
-  background: #e8eefc;
+  background: var(--pc-accent-soft);
   box-shadow: inset 0 0 0 1px var(--pc-accent);
 }
 .edu-pc-shop-sum {
@@ -364,7 +371,7 @@
   border: 0;
   border-radius: 10px;
   background: var(--pc-accent);
-  color: #fff;
+  color: var(--edu-ink-0);
   font-weight: 600;
 }
 .edu-pc-primary:disabled {
@@ -375,7 +382,7 @@
   margin: 12px 0 0;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #fde2e2;
+  background: var(--pc-err-soft);
   color: var(--pc-err);
 }
 .edu-pc-sort-list {
@@ -396,7 +403,7 @@
   border-radius: 10px;
 }
 .edu-pc-sort-list li.is-sorted {
-  background: #eef7f0;
+  background: var(--pc-ok-soft);
 }
 .edu-pc-sort-buttons {
   display: flex;
@@ -407,7 +414,7 @@
   padding: 6px 12px;
   border: 1px solid var(--pc-line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--pc-panel);
   color: var(--pc-ink);
 }
 .edu-pc-sort-btn:disabled {
@@ -418,7 +425,7 @@
   opacity: 1;
   border-color: var(--pc-ok);
   background: var(--pc-ok);
-  color: #fff;
+  color: var(--edu-ink-0);
 }
 .edu-pc-done h2 {
   margin-top: 0;
@@ -430,7 +437,7 @@
   margin: 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #fde2e2;
+  background: var(--pc-err-soft);
   color: var(--pc-err);
 }
 
@@ -462,4 +469,173 @@
     left: 8px;
     max-width: none;
   }
+}
+
+/* Name tags of the slots over the 3D view, and the note by the pointer (PcScene puts them in place). */
+.edu-pc-tags {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.edu-pc-tag,
+.edu-pc-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+.edu-pc-tag {
+  margin-top: -6px;
+  padding: 2px 8px;
+  border: 1px solid var(--edu-ink-200);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--edu-ink-0) 92%, transparent);
+  color: var(--pc-ink);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px var(--pc-shadow);
+}
+.edu-pc-tag::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid var(--edu-ink-200);
+  border-bottom: 1px solid var(--edu-ink-200);
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+.edu-pc-tag.is-hint {
+  border-color: var(--edu-amber-500);
+  background: var(--edu-amber-50);
+  color: var(--edu-amber-900);
+}
+.edu-pc-tag.is-fit {
+  border-color: var(--edu-pink-300);
+  background: var(--edu-pink-50);
+  color: var(--edu-pink-800);
+}
+.edu-pc-tag.is-hint::after {
+  border-color: var(--edu-amber-500);
+}
+.edu-pc-tag.is-fit::after {
+  border-color: var(--edu-pink-300);
+}
+.edu-pc-tag.is-hover {
+  z-index: 1;
+  border-color: var(--edu-pink-600);
+  background: var(--edu-pink-600);
+  color: var(--edu-ink-0);
+}
+.edu-pc-tag.is-hover::after {
+  border-color: var(--edu-pink-600);
+}
+.edu-pc-tip {
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--edu-ink-900);
+  color: var(--edu-ink-0);
+  font-size: 13px;
+  line-height: 1.35;
+  box-shadow: 0 6px 20px var(--pc-shadow);
+}
+.edu-pc-tip[hidden],
+.edu-pc-tag[hidden] {
+  display: none;
+}
+.edu-pc-tip span {
+  color: var(--edu-ink-300);
+}
+.edu-pc-tip .is-yes {
+  color: var(--edu-green-300);
+  font-weight: 650;
+}
+.edu-pc-tip .is-no {
+  color: var(--edu-pink-300);
+  font-weight: 650;
+}
+
+.edu-pc-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px 14px;
+}
+.edu-pc-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--pc-line);
+  border-radius: 10px;
+  background: var(--pc-panel);
+  color: var(--pc-ink);
+  font-weight: 600;
+}
+.edu-pc-full:hover {
+  border-color: var(--edu-pink-300);
+  color: var(--pc-accent);
+}
+.edu-pc-full:focus-visible,
+.edu-pc-part:focus-visible,
+.edu-pc-answer:focus-visible,
+.edu-pc-primary:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--edu-pink-500) 50%, transparent);
+  outline-offset: 1px;
+}
+.edu-pc-done-actions {
+  display: grid;
+  gap: 8px;
+}
+.edu-pc-done-actions .edu-pc-answer {
+  text-align: center;
+}
+
+/* Full screen: the trainer covers the page; see fullscreen.ts. */
+.edu-pc.is-full {
+  position: fixed;
+  z-index: 900;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 0;
+  border-radius: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+:root.edu-pc-page-full,
+:root.edu-pc-page-full body {
+  overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .edu-pc-head {
+    flex-wrap: wrap;
+    padding: 8px 12px;
+  }
+  .edu-pc-full-text {
+    display: none;
+  }
+}
+/* a tag moved up a row so it does not cover its neighbour: a thin line still points at its slot */
+.edu-pc-tag.is-raised::after {
+  bottom: -26px;
+  width: 0;
+  height: 20px;
+  border: 0;
+  border-left: 1.5px dashed currentColor;
+  background: none;
+  transform: translateX(-50%);
+  opacity: 0.55;
 }
