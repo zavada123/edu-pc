@@ -10,6 +10,8 @@ import { DoneCard, HeldBar, PartInfo, QuestionCard, StepCard, StepList, ToastLin
 import { useBuild, type BuildCallbacks } from "./useBuild.ts"
 import "./edu-pc.css"
 
+const DONE_DELAY_MS = 2600
+
 export interface EduPcProps extends BuildCallbacks {
   readonly scenario: Scenario
   /** Where the scenario's slots are in 3D. Defaults to the built-in layout for the scenario's id. */
@@ -61,12 +63,11 @@ export const EduPc = ({
           {
             onSlot: (slot) => handlers.current.placeAt(slot),
             onInspect: (part) => handlers.current.inspect(part),
-            onLever: () => {
-              const lever = sceneLayout.lever
-              if (!lever) return
-              const current = handlers.current.state.controls[lever.control]
-              const other = scenario.controls.find((c) => c.id === lever.control)?.values.find((v) => v !== current)
-              if (other !== undefined) handlers.current.act({ type: "set", control: lever.control, value: other })
+            // a lever or a button switches its control to the other value
+            onControl: (control) => {
+              const current = handlers.current.state.controls[control]
+              const other = scenario.controls.find((c) => c.id === control)?.values.find((v) => v !== current)
+              if (other !== undefined) handlers.current.act({ type: "set", control, value: other })
             }
           },
           lightGraphics
@@ -83,6 +84,18 @@ export const EduPc = ({
     }
   }, [scenario, sceneLayout, lightGraphics])
 
+  // Let the last action play out in 3D (fans spin up, the monitor lights) before the summary covers it.
+  const finished = isDone(scenario, state)
+  const [showDone, setShowDone] = useState(false)
+  useEffect(() => {
+    if (!finished) {
+      setShowDone(false)
+      return
+    }
+    const t = window.setTimeout(() => setShowDone(true), DONE_DELAY_MS)
+    return () => window.clearTimeout(t)
+  }, [finished])
+
   const shownHint = showHints ? hint : null
   useEffect(() => {
     sceneRef.current?.update({ placed: state.placed, controls: state.controls, held, hint: shownHint })
@@ -90,9 +103,11 @@ export const EduPc = ({
 
   useEffect(() => {
     if (!sceneLayout) return
-    const [at, distance] = focusPoint(sceneLayout, hint.slots, hint.control?.id)
+    // look at every place the step fills, so a step with several cables shows all their sockets
+    const slots = step?.kind === "place" ? [...new Set(Object.values(step.targets).flat())] : hint.slots
+    const [at, distance, view] = finished && sceneLayout.finale ? [sceneLayout.finale.at, sceneLayout.finale.distance, sceneLayout.finale.view] : focusPoint(sceneLayout, slots, hint.control?.id)
     // wait a frame: on the first render the scene module is still loading
-    const t = window.setTimeout(() => sceneRef.current?.focus(at, distance), 60)
+    const t = window.setTimeout(() => sceneRef.current?.focus(at, distance, view), 60)
     return () => window.clearTimeout(t)
     // Focus once per step, not on every hint change inside a step: hint is left out on purpose.
   }, [state.step, sceneLayout, sceneError])
@@ -114,10 +129,9 @@ export const EduPc = ({
   const heldPart = held ? scenario.parts.find((p) => p.id === held.part) : undefined
   const infoPart = build.info ? scenario.parts.find((p) => p.id === build.info) : undefined
   const question = step?.question && !state.answered.includes(step.id) ? step.question : undefined
-  const done = isDone(scenario, state)
 
   const pick = (part: Part) => {
-    if (step?.kind === "inspect" || part.id === sceneLayout.boardPart) build.inspect(part.id)
+    if (step?.kind === "inspect" || part.id === sceneLayout.benchPart) build.inspect(part.id)
     else build.take(part.id)
   }
 
@@ -160,14 +174,14 @@ export const EduPc = ({
             parts={trayParts}
             held={held}
             highlighted={shownHint?.parts ?? []}
-            boardPart={sceneLayout.boardPart}
+            benchPart={sceneLayout.benchPart}
             icons={icons}
             onPick={pick}
           />
         )}
       </footer>
       {question && step && <QuestionCard step={step} question={question} onAnswer={(answer) => build.act({ type: "answer", answer })} />}
-      {done && <DoneCard result={report(scenario, state)} onRestart={build.restart} />}
+      {showDone && <DoneCard result={report(scenario, state)} onRestart={build.restart} />}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest"
 import { apply, isDone, replay, startState } from "../core/machine.ts"
 import { hintFor, report, solution } from "../core/progress.ts"
 import { validateScenario } from "../core/validate.ts"
-import { grade8Club, scenarios } from "./index.ts"
+import { grade8Case, grade8Club, scenarios } from "./index.ts"
 
 describe.each(Object.values(scenarios))("scenario $id", (scenario) => {
   test("has no authoring errors", () => {
@@ -81,5 +81,41 @@ describe("validateScenario", () => {
       "Крок «a»: немає місця «nowhere»",
       "Крок «a»: «cpu» (cpu) не вставляється в «m2Slot»"
     ])
+  })
+})
+
+describe("grade 8 case", () => {
+  const before = (part: string) => {
+    const actions = solution(grade8Case)
+    const at = actions.findIndex((a) => a.type === "place" && a.part === part)
+    return replay(grade8Case, actions.slice(0, at))
+  }
+
+  test("the graphics card's power cable in the CPU socket is a mistake that tells the two apart", () => {
+    const outcome = apply(grade8Case, before("atx"), { type: "place", part: "pcie", slot: "cpuPowerPort", turn: 0 })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.message).toContain("CPU і PCIe")
+  })
+
+  test("the monitor on the board's HDMI is a mistake once a graphics card is in", () => {
+    const outcome = apply(grade8Case, before("monitor"), { type: "place", part: "monitor", slot: "boardHdmi", turn: 0 })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.message).toContain("відеокарті")
+  })
+
+  test("the graphics card in the short PCIe x1 slot is a mistake", () => {
+    expect(apply(grade8Case, before("gpu"), { type: "place", part: "gpu", slot: "pcieX1", turn: 0 }).result).toBe("mistake")
+  })
+
+  test("the power supply turned round is a mistake", () => {
+    const outcome = apply(grade8Case, before("psu"), { type: "place", part: "psu", slot: "psuBay", turn: 2 })
+    expect(outcome.result).toBe("mistake")
+    if (outcome.result === "mistake") expect(outcome.message).toContain("задній стінці")
+  })
+
+  test("the keyboard fits any USB socket", () => {
+    for (const slot of ["usb1", "usb2", "usb3", "usb4"]) {
+      expect(apply(grade8Case, before("keyboard"), { type: "place", part: "keyboard", slot, turn: 1 }).result).toBe("ok")
+    }
   })
 })

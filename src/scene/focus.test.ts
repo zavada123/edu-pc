@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest"
-import { focusPoint } from "./focus.ts"
-import { grade8DeskLayout } from "./layout.ts"
+import { FRONT_VIEW, focusPoint } from "./focus.ts"
+import { grade8CaseLayout, grade8DeskLayout } from "./layout.ts"
 
 describe("focusPoint", () => {
   test("looks at the whole board when there is nothing to place", () => {
-    expect(focusPoint(grade8DeskLayout, [], undefined)).toEqual([[0, 0, 0], 40])
+    expect(focusPoint(grade8DeskLayout, [], undefined)).toEqual([[0, 0, 0], 40, FRONT_VIEW])
   })
 
   test("looks at the lever on a lever step", () => {
@@ -22,5 +22,20 @@ describe("focusPoint", () => {
 
   test("comes close for one small header", () => {
     expect(focusPoint(grade8DeskLayout, ["cpuFan"], undefined)[1]).toBe(20)
+  })
+
+  test("looks at the ports on the back of the case from behind", () => {
+    const [, , view] = focusPoint(grade8CaseLayout, ["usb1", "usb2"], undefined)
+    expect(view[2]).toBeGreaterThan(view[1])
+  })
+
+  test("looks at the power button from the case's top side", () => {
+    const [at, , view] = focusPoint(grade8CaseLayout, [], "power")
+    expect(at).toEqual(grade8CaseLayout.buttons?.[0]?.at)
+    expect(view[0]).toBeLessThan(0)
+  })
+
+  test("stands back for the whole case", () => {
+    expect(focusPoint(grade8CaseLayout, [], undefined)[1]).toBe(grade8CaseLayout.overview)
   })
 })

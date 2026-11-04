@@ -1,6 +1,6 @@
 import { CatmullRomCurve3, CylinderGeometry, DoubleSide, type Group, Mesh, PlaneGeometry, SphereGeometry, TubeGeometry, Vector3 } from "three"
 import type { PartKind } from "../core/parts.ts"
-import { M, box, boxes, cylinder, group, mat, rounded, seeded, shadowed } from "./kit.ts"
+import { M, box, boxes, cylinder, fanRotor, group, mat, rounded, seeded, shadowed } from "./kit.ts"
 import { DIMM_KEY, DIMM_LENGTH } from "./layout.ts"
 import { chipTexture, cpuLidTexture, fingersTexture, hubTexture, stickerTexture } from "./textures.ts"
 
@@ -93,19 +93,12 @@ const fan = (y: number): Group => {
     holder.rotation.y = Math.PI / 4 + (i * Math.PI) / 2
     g.add(holder)
   }
-  const blade = mat("#2a2d33", { rough: 0.4, metal: 0.1 })
-  for (let i = 0; i < 9; i++) {
-    const b = rounded([2.3, 0.06, 1.25], 0.03, blade, 2.1, 0, 0)
-    b.rotation.x = 0.5
-    b.position.y = y + 0.45
-    const holder = group(b)
-    holder.rotation.y = (i / 9) * Math.PI * 2
-    g.add(holder)
-  }
-  g.add(cylinder(1.05, 0.7, mat("#1b1d21", { rough: 0.4 }), 0, y + 0.25))
+  // the blades and the motor turn together once the computer is on
+  const rotor = fanRotor(3.2, 9, mat("#2a2d33", { rough: 0.4, metal: 0.1 }), mat("#1b1d21", { rough: 0.4 }), y + 0.6)
+  g.add(rotor)
   const hub = new Mesh(new CylinderGeometry(0.98, 0.98, 0.01, 40), [M.blackPlastic, mat("#ffffff", { map: hubTexture() }), M.blackPlastic])
-  hub.position.y = y + 0.96
-  g.add(hub)
+  hub.position.y = 0.36
+  rotor.add(hub)
   return g
 }
 
@@ -223,9 +216,6 @@ const m2ssd = (): Group => {
   g.add(cylinder(0.32, 0.105, M.gold, 4.0, 0, 0, 20), cylinder(0.18, 0.11, M.chip, 4.0, 0, 0, 16))
   return g
 }
-
-/** Kinds that have a real model here; the rest get a placeholder for now. */
-export const MODELLED: ReadonlySet<PartKind> = new Set<PartKind>(["cpu", "thermalPaste", "cooler", "fanCable", "ram", "m2ssd"])
 
 /** A plain box for parts later stages model properly (PSU, GPU, case, peripherals). */
 const placeholder = (): Group => group(rounded([4, 2, 4], 0.2, M.darkMetal))

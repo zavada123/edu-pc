@@ -85,14 +85,15 @@ export const Tray = ({
   parts,
   held,
   highlighted,
-  boardPart,
+  benchPart,
   icons,
   onPick
 }: {
   parts: ReadonlyArray<Part>
   held: Held | null
   highlighted: ReadonlyArray<string>
-  boardPart: string | undefined
+  /** The part that is the bench itself (the board, the case): it stays on the desk. */
+  benchPart: string | undefined
   /** Pictures rendered from the 3D models; until they are ready, simple drawn icons stand in. */
   icons: Partial<Record<string, string>>
   onPick: (part: Part) => void
@@ -110,7 +111,7 @@ export const Tray = ({
             <span className={`edu-pc-part-icon kind-${part.kind}`} aria-hidden="true" />
           )}
           <span>{part.name}</span>
-          {part.id === boardPart && <span className="edu-pc-part-note">на столі</span>}
+          {part.id === benchPart && <span className="edu-pc-part-note">на столі</span>}
         </button>
       )
     })}

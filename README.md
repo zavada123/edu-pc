@@ -4,7 +4,7 @@
 
 Students look at the parts of a computer, put them in the right places step by step, answer a short question before key steps and get an explanation for every mistake: a CPU turned the wrong way, RAM in the wrong slots, the cooler cable on the wrong header. The student-facing text is in Ukrainian. It is built for [EduProstir](https://eduprostir.com).
 
-> Status: stage 2 of the [plan](#roadmap). The core and the 3D bench for the grade 8 desk scenario work on a computer and a phone; building into the case and the grade 3–4 scenario come next.
+> Status: stage 3 of the [plan](#roadmap). Grade 8 builds the motherboard on the desk and then the whole computer in the case, on a computer and a phone. The grade 3–4 scenario comes next.
 
 ## Component
 
@@ -16,11 +16,12 @@ import "edu-pc/style.css"
 <EduPc scenario={grade8Club} onComplete={(report) => save(report)} />
 ```
 
-- A 3D bench (three.js, loaded on first use as a separate chunk): a motherboard of our own design, every part modelled in code, realistic materials.
-- Take a part from the tray, turn it with ⟲ ⟳ (or Q / E), tap the place for it. Click the socket lever to lift or lower it. Click a part to read what it does.
+- A 3D bench (three.js, loaded on first use as a separate chunk): a motherboard of our own design on the desk, or an open case lying on its side; every part modelled in code, realistic materials, shadows.
+- Take a part from the tray, turn it with ⟲ ⟳ (or Q / E), tap the place for it. Click the socket lever or the power button to switch them. Click a part to read what it does. Cables run from the power supply to the plugs you connect.
+- Once the computer is on, its fans spin and the monitor on the desk lights up.
 - The next target glows (the «Підказки» switch turns it off), the camera glides to it, and every mistake is explained.
 - Props: `hints`, `lightGraphics` (fewer pixels for old computers), `onAction` (every action, for a replay log), `onComplete` (the report), `layout` (your own 3D layout for a scenario).
-- Demo: `npm run dev`; `?light` turns on light graphics.
+- Demo: `npm run dev`; `?s=grade8-club-case` opens the case scenario, `?light` turns on light graphics.
 
 ## Core
 
@@ -48,12 +49,13 @@ report(grade8Club, state)  // steps done, mistakes, mistakes by lesson goal (A, 
 | id | Grade | Topic |
 |---|---|---|
 | `grade8-club-desk` | 8 | «ПК і його складові»: what is inside, building the motherboard on the desk |
+| `grade8-club-case` | 8 | «ПК і його складові»: the power supply, board, graphics card and disk into the case, cables, monitor, keyboard and mouse, power on |
 
 ## Roadmap
 
 1. Core and the grade 8 desk scenario ✓
 2. 3D scene (three.js, parts modelled in code): pick up, turn, place, highlights ✓
-3. Building into the case, grade 8
+3. Building into the case, grade 8 ✓
 4. Grade 3–4 scenario: unboxing, sorting input and output devices, plugging in
 5. Data path, upgrade and «power off» tasks
 6. Troubleshooting mode

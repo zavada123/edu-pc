@@ -1,6 +1,6 @@
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from "three"
 import { seeded } from "./kit.ts"
-import type { SceneLayout } from "./layout.ts"
+import type { BoardFace } from "./layout.ts"
 
 export const BOARD_W = 30.5
 export const BOARD_D = 24.4
@@ -56,7 +56,7 @@ const drawTraces = (g: CanvasRenderingContext2D): void => {
 }
 
 /** The board's top: solder mask, traces, vias, silkscreen labels and outlines, the socket's triangle. */
-export const boardTexture = (layout: SceneLayout): CanvasTexture =>
+export const boardTexture = (layout: BoardFace): CanvasTexture =>
   canvasTexture(BOARD_W * PX, BOARD_D * PX, (g) => {
     const grad = g.createLinearGradient(0, 0, g.canvas.width, g.canvas.height)
     grad.addColorStop(0, "#2b3036")
@@ -225,4 +225,92 @@ export const hubTexture = (): CanvasTexture =>
     g.fillText("EDU", 128, 112)
     g.font = "600 26px system-ui, sans-serif"
     g.fillText("COOL 120", 128, 160)
+  })
+
+/** Honeycomb vent holes, for the back of the power supply and the case's vents. */
+export const honeycombTexture = (bg = "#202226"): CanvasTexture =>
+  canvasTexture(512, 512, (g) => {
+    g.fillStyle = bg
+    g.fillRect(0, 0, 512, 512)
+    g.fillStyle = "#050607"
+    const r = 13
+    const w = r * Math.sqrt(3)
+    for (let row = 0; row * r * 1.5 < 540; row++) {
+      for (let col = 0; col * w < 540; col++) {
+        const cx = col * w + (row % 2 ? w / 2 : 0)
+        const cy = row * r * 1.5
+        g.beginPath()
+        for (let k = 0; k < 6; k++) {
+          const a = Math.PI / 6 + (k * Math.PI) / 3
+          const px = cx + Math.cos(a) * (r - 3)
+          const py = cy + Math.sin(a) * (r - 3)
+          if (k === 0) g.moveTo(px, py)
+          else g.lineTo(px, py)
+        }
+        g.closePath()
+        g.fill()
+      }
+    }
+  })
+
+/** A round wire fan guard over dark slots. */
+export const fanGrilleTexture = (): CanvasTexture =>
+  canvasTexture(512, 512, (g) => {
+    g.fillStyle = "#1b1d21"
+    g.fillRect(0, 0, 512, 512)
+    g.fillStyle = "#060708"
+    g.beginPath()
+    g.arc(256, 256, 236, 0, Math.PI * 2)
+    g.fill()
+    g.strokeStyle = "#5b6169"
+    g.lineWidth = 7
+    for (let r = 40; r < 240; r += 32) {
+      g.beginPath()
+      g.arc(256, 256, r, 0, Math.PI * 2)
+      g.stroke()
+    }
+    for (let k = 0; k < 4; k++) {
+      g.beginPath()
+      g.moveTo(256, 256)
+      g.lineTo(256 + Math.cos((k * Math.PI) / 2 + 0.6) * 240, 256 + Math.sin((k * Math.PI) / 2 + 0.6) * 240)
+      g.stroke()
+    }
+  })
+
+/** A short printed tag on a cable plug: «CPU», «PCIe». */
+export const tagTexture = (text: string, bg = "#e9ecef", ink = "#1f2328"): CanvasTexture =>
+  canvasTexture(256, 96, (g) => {
+    g.fillStyle = bg
+    g.fillRect(0, 0, 256, 96)
+    g.fillStyle = ink
+    g.font = "800 60px system-ui, sans-serif"
+    g.textAlign = "center"
+    g.textBaseline = "middle"
+    g.fillText(text, 128, 50)
+  })
+
+/** What the monitor shows once the computer is on: a calm desktop with a greeting. */
+export const desktopTexture = (): CanvasTexture =>
+  canvasTexture(1024, 600, (g) => {
+    const grad = g.createLinearGradient(0, 0, 1024, 600)
+    grad.addColorStop(0, "#1f6f8b")
+    grad.addColorStop(1, "#1fa7a0")
+    g.fillStyle = grad
+    g.fillRect(0, 0, 1024, 600)
+    g.fillStyle = "rgba(255,255,255,0.12)"
+    g.beginPath()
+    g.arc(820, 120, 260, 0, Math.PI * 2)
+    g.fill()
+    g.fillStyle = "#ffffff"
+    g.textAlign = "center"
+    g.font = "800 72px system-ui, sans-serif"
+    g.fillText("Привіт, гуртку!", 512, 270)
+    g.font = "500 38px system-ui, sans-serif"
+    g.fillText("Комп'ютер зібрано й увімкнено", 512, 340)
+    g.fillStyle = "rgba(10, 20, 30, 0.55)"
+    g.fillRect(0, 548, 1024, 52)
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = ["#ffc94d", "#e9ecef", "#7bbf3a", "#e87ab0", "#2563eb", "#c0392b"][i] ?? "#fff"
+      g.fillRect(24 + i * 64, 558, 40, 32)
+    }
   })

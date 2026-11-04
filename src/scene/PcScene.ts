@@ -1,6 +1,7 @@
 import {
   ACESFilmicToneMapping,
   BoxGeometry,
+  CatmullRomCurve3,
   Color,
   DirectionalLight,
   EdgesGeometry,
@@ -19,6 +20,7 @@ import {
   Raycaster,
   Scene,
   SRGBColorSpace,
+  TubeGeometry,
   Vector2,
   Vector3,
   WebGLRenderer
@@ -29,25 +31,30 @@ import type { Hint } from "../core/progress.ts"
 import type { Placed } from "../core/machine.ts"
 import type { PartKind, Turn } from "../core/parts.ts"
 import type { Scenario } from "../core/scenario.ts"
-import type { SceneLayout, Vec3 } from "./layout.ts"
 import { buildBoard, buildDesk, buildLever } from "./board.ts"
+import { buildCase, powerButton } from "./case.ts"
+import { FRONT_VIEW } from "./focus.ts"
 import { renderIcons } from "./icons.ts"
-import { buildPart } from "./parts.ts"
+import { mat } from "./kit.ts"
+import { GRADE8_BOARD, type SceneLayout, type Vec3 } from "./layout.ts"
+import { buildModel, deviceModel, iconModel, MODELLED } from "./models.ts"
 
 export interface SceneEvents {
   /** The student clicked a slot while holding a part. */
   readonly onSlot: (slotId: string) => void
-  /** The student clicked the socket lever. */
-  readonly onLever: () => void
-  /** The student clicked a placed part or the board. */
+  /** The student clicked a control on the bench: the socket lever, the power button. */
+  readonly onControl: (controlId: string) => void
+  /** The student clicked a placed part or the bench (the board, the case). */
   readonly onInspect: (partId: string) => void
 }
 
 /** What the page outside the trainer may ask of the scene: tests and teacher tools. */
 export interface SceneHandle {
-  /** Where a slot or the lever is on the screen, in page pixels; null when it is not in this layout. */
-  screenPoint(target: { readonly slot: string } | { readonly lever: true }): { x: number; y: number } | null
+  /** Where a slot, the lever or a control's button is on the screen, in page pixels; null when it is not in this layout. */
+  screenPoint(target: ScreenTarget): { x: number; y: number } | null
 }
+
+export type ScreenTarget = { readonly slot: string } | { readonly lever: true } | { readonly control: string }
 
 /** Everything the scene shows. The React component sends a new view after every action. */
 export interface SceneView {
@@ -59,6 +66,18 @@ export interface SceneView {
 
 const CLICK_PX = 7
 const HOLD_HEIGHT = 5
+const SPIN_PER_FRAME = 0.45
+/** Cable thickness and colour by the kind of plug. */
+const CABLES: Partial<Record<string, { readonly r: number; readonly color: string }>> = {
+  atxCable: { r: 0.55, color: "#141518" },
+  cpuPowerCable: { r: 0.32, color: "#141518" },
+  gpuPowerCable: { r: 0.32, color: "#141518" },
+  sataPowerCable: { r: 0.22, color: "#141518" },
+  sataDataCable: { r: 0.14, color: "#c0392b" },
+  monitor: { r: 0.3, color: "#1b1d21" },
+  keyboard: { r: 0.2, color: "#3e434a" },
+  mouse: { r: 0.18, color: "#1b1d21" }
+}
 const QUARTER = Math.PI / 2
 const LEVER_UP = 1.35
 const HINT_COLOR = new Color("#ffc94d")
@@ -78,15 +97,19 @@ export class PcScene implements SceneHandle {
   private readonly camera = new PerspectiveCamera(38, 1, 0.5, 400)
   private readonly controls: OrbitControls
   private readonly bench = new Group()
-  private readonly board: Group
+  private readonly benchModel: Group
   private readonly lever: Group | null = null
+  private readonly buttons: Array<{ readonly control: string; readonly mesh: Group }> = []
+  private readonly screens: MeshStandardMaterial[] = []
+  private spinners: Object3D[] | null = null
   private readonly areas: SlotArea[] = []
   private readonly placedMeshes = new Map<string, { slot: string; mesh: Group }>()
   private heldMesh: { part: string; mesh: Group } | null = null
   private readonly ray = new Raycaster()
   private readonly pointer = new Vector2()
-  private readonly holdPlane = new Plane(new Vector3(0, 1, 0), -HOLD_HEIGHT)
-  private readonly holdAt = new Vector3(0, HOLD_HEIGHT, 8)
+  private readonly holdHeight: number
+  private readonly holdPlane: Plane
+  private readonly holdAt: Vector3
   private down: { x: number; y: number } | null = null
   private view: SceneView = { placed: {}, controls: {}, held: null, hint: null }
   private leverAngle = 0
@@ -102,6 +125,9 @@ export class PcScene implements SceneHandle {
     private readonly events: SceneEvents,
     light = false
   ) {
+    this.holdHeight = layout.holdHeight ?? HOLD_HEIGHT
+    this.holdPlane = new Plane(new Vector3(0, 1, 0), -this.holdHeight)
+    this.holdAt = new Vector3(0, this.holdHeight, 8)
     this.renderer = new WebGLRenderer({ antialias: !light, powerPreference: light ? "low-power" : "default" })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, light ? 1 : 2))
     this.renderer.outputColorSpace = SRGBColorSpace
@@ -122,7 +148,8 @@ export class PcScene implements SceneHandle {
     if (!light) {
       sun.castShadow = true
       sun.shadow.mapSize.set(2048, 2048)
-      Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 10, far: 90 })
+      const reach = layout.bench === "case" ? 34 : 22
+      Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 10, far: 120 })
       sun.shadow.bias = -0.0005
       sun.shadow.normalBias = 0.03
     }
@@ -131,9 +158,9 @@ export class PcScene implements SceneHandle {
     this.scene.add(buildDesk())
     this.bench.position.y = 0.05
     this.scene.add(this.bench)
-    this.board = buildBoard(layout, scenario.slots)
-    this.board.userData.part = layout.boardPart
-    this.bench.add(this.board)
+    this.benchModel = layout.bench === "case" ? buildCase() : buildBoard(GRADE8_BOARD, scenario.slots, layout.slots)
+    this.benchModel.userData.part = layout.benchPart
+    this.bench.add(this.benchModel)
     if (layout.lever) {
       const lever = buildLever(layout.lever.length)
       lever.position.set(...layout.lever.pivot)
@@ -141,14 +168,31 @@ export class PcScene implements SceneHandle {
       this.bench.add(lever)
       this.lever = lever
     }
+    for (const pose of layout.buttons ?? []) {
+      const button = powerButton()
+      button.position.set(...pose.at)
+      button.userData.control = pose.control
+      this.bench.add(button)
+      this.buttons.push({ control: pose.control, mesh: button })
+    }
+    for (const prop of layout.props ?? []) {
+      const device = deviceModel(prop.kind)
+      device.position.set(...prop.at)
+      device.rotation.y = prop.yaw ?? 0
+      device.traverse((o) => {
+        if (o instanceof Mesh && o.userData.screen && o.material instanceof MeshStandardMaterial) this.screens.push(o.material)
+      })
+      this.scene.add(device)
+    }
     for (const slot of scenario.slots) this.addArea(slot.id, slot.accepts)
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
     this.controls.maxPolarAngle = Math.PI * 0.46
     this.controls.minDistance = 10
-    this.controls.maxDistance = 90
-    this.camera.position.set(0, 34, 30)
+    this.controls.maxDistance = 140
+    const far = (layout.overview ?? 40) / 40
+    this.camera.position.set(0, 34 * far, 30 * far)
     this.controls.target.set(0, 0, 0)
 
     const el = this.renderer.domElement
@@ -168,21 +212,25 @@ export class PcScene implements SceneHandle {
     this.syncHeld()
   }
 
-  /** Glides the camera to look at a point from a comfortable distance; farther on a narrow screen. */
-  focus(at: Vec3, distance = 26): void {
+  /** Glides the camera to look at a point from a comfortable distance and direction; farther on a narrow screen. */
+  focus(at: Vec3, distance = 26, view: Vec3 = FRONT_VIEW): void {
     this.focusTarget.set(at[0], at[1], at[2])
     const narrow = this.host.clientWidth < 700 ? 1.45 : 1
-    const offset = new Vector3(0, 0.78, 0.62).normalize().multiplyScalar(distance * narrow)
+    const offset = new Vector3(...view).normalize().multiplyScalar(distance * narrow)
     this.focusFrom = this.focusTarget.clone().add(offset)
     this.focusing = 1
   }
 
-  screenPoint(target: { readonly slot: string } | { readonly lever: true }): { x: number; y: number } | null {
+  screenPoint(target: ScreenTarget): { x: number; y: number } | null {
     let p: Vector3
     if ("slot" in target) {
       const at = this.layout.slots[target.slot]?.at
       if (!at) return null
       p = this.bench.localToWorld(new Vector3(at[0], at[1] + 0.3, at[2]))
+    } else if ("control" in target) {
+      const at = this.layout.buttons?.find((b) => b.control === target.control)?.at
+      if (!at) return null
+      p = this.bench.localToWorld(new Vector3(at[0] - 0.3, at[1], at[2]))
     } else {
       if (!this.lever || !this.layout.lever) return null
       // the middle of the bar, wherever the lever is turned now
@@ -196,7 +244,11 @@ export class PcScene implements SceneHandle {
 
   /** Tray pictures of the given kinds, drawn from the scene's own models. */
   icons(kinds: ReadonlyArray<PartKind>): Partial<Record<PartKind, string>> {
-    return renderIcons(this.renderer, this.scene.environment, kinds)
+    return renderIcons(this.renderer, this.scene.environment, kinds, (kind) => {
+      // on the desk the board is bare: the student is about to fill it
+      if (kind === "motherboard" && this.layout.bench === "board") return buildBoard(GRADE8_BOARD, this.scenario.slots, this.layout.slots)
+      return MODELLED.has(kind) ? iconModel(kind) : null
+    })
   }
 
   dispose(): void {
@@ -252,13 +304,39 @@ export class PcScene implements SceneHandle {
       const pose = this.layout.slots[slotId]
       const part = this.scenario.parts.find((p) => p.id === placed.part)
       if (!pose || !part) continue
-      const mesh = buildPart(part.kind, true)
-      mesh.position.set(...pose.at)
-      mesh.rotation.y = -placed.turn * QUARTER
+      const model = buildModel(part.kind, true)
+      model.position.set(...pose.at)
+      // a slot that takes any turn shows the part the way it really goes in
+      const fixed = this.scenario.slots.find((s) => s.id === slotId)?.turn
+      model.rotation.y = fixed === undefined ? 0 : -placed.turn * QUARTER
+      const mesh = new Group()
+      mesh.add(model)
+      if (pose.cableFrom) {
+        const cable = this.cable(model, part.kind, new Vector3(...pose.cableFrom))
+        if (cable) mesh.add(cable)
+      }
       mesh.userData.part = part.id
       this.bench.add(mesh)
       this.placedMeshes.set(part.id, { slot: slotId, mesh })
     }
+    this.spinners = null
+  }
+
+  /** A cable from a placed plug to where it comes from, sagging a little on the way. */
+  private cable(plug: Group, kind: string, to: Vector3): Mesh | null {
+    const look = CABLES[kind]
+    const out = plug.userData.cableOut
+    const dir = plug.userData.cableDir
+    if (!look || !(out instanceof Vector3) || !(dir instanceof Vector3)) return null
+    plug.updateMatrix()
+    const start = out.clone().applyMatrix4(plug.matrix)
+    const lead = start.clone().add(dir.clone().transformDirection(plug.matrix).multiplyScalar(2.5))
+    const top = Math.max(start.y, to.y) + 2
+    const mid = new Vector3((lead.x + to.x) / 2, top, (lead.z + to.z) / 2)
+    const curve = new CatmullRomCurve3([start, lead, mid, to])
+    const tube = new Mesh(new TubeGeometry(curve, 48, look.r, 10), mat(look.color, { rough: 0.7 }))
+    tube.castShadow = true
+    return tube
   }
 
   private syncHeld(): void {
@@ -270,7 +348,7 @@ export class PcScene implements SceneHandle {
     if (held && !this.heldMesh) {
       const part = this.scenario.parts.find((p) => p.id === held.part)
       if (part) {
-        const mesh = buildPart(part.kind, false)
+        const mesh = buildModel(part.kind, false)
         this.scene.add(mesh)
         this.heldMesh = { part: held.part, mesh }
       }
@@ -312,10 +390,12 @@ export class PcScene implements SceneHandle {
         }
       })
     }
+    this.animateButtons(pulse)
+    this.animatePower()
     if (this.heldMesh && held) {
       const m = this.heldMesh.mesh
       m.position.lerp(this.holdAt, 0.35)
-      m.position.y = HOLD_HEIGHT + Math.sin(time / 400) * 0.15
+      m.position.y = this.holdHeight + Math.sin(time / 400) * 0.15
       m.rotation.y += (-held.turn * QUARTER - m.rotation.y) * 0.25
     }
     if (this.focusing > 0) {
@@ -327,6 +407,42 @@ export class PcScene implements SceneHandle {
     this.renderer.render(this.scene, this.camera)
   }
 
+  private poweredOn(): boolean {
+    const power = this.layout.power
+    return power !== undefined && this.view.controls[power.control] === power.on
+  }
+
+  /** A button glows when pressing it is the next thing to do; its light ring shines once the computer is on. */
+  private animateButtons(pulse: number): void {
+    const on = this.poweredOn()
+    for (const { control, mesh } of this.buttons) {
+      const next = this.view.hint?.control?.id === control && !this.view.held
+      mesh.traverse((obj) => {
+        if (!(obj instanceof Mesh) || !(obj.material instanceof MeshStandardMaterial)) return
+        if (obj.userData.light) obj.material.emissiveIntensity = on ? 1.4 : next ? 0.3 + 0.6 * pulse : 0
+        else {
+          obj.material.emissive.copy(HINT_COLOR)
+          obj.material.emissiveIntensity = next ? 0.2 + 0.5 * pulse : 0
+        }
+      })
+    }
+  }
+
+  /** With the power on, fans spin and the monitor shows its picture. */
+  private animatePower(): void {
+    const on = this.poweredOn()
+    for (const screen of this.screens) screen.emissiveIntensity += ((on ? 1 : 0) - screen.emissiveIntensity) * 0.06
+    if (!on) return
+    if (!this.spinners) {
+      const found: Object3D[] = []
+      this.bench.traverse((o) => {
+        if (o.userData.spin) found.push(o)
+      })
+      this.spinners = found
+    }
+    for (const rotor of this.spinners) rotor.rotation.y += SPIN_PER_FRAME
+  }
+
   private setPointer(e: PointerEvent): void {
     const r = this.renderer.domElement.getBoundingClientRect()
     this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
@@ -335,11 +451,11 @@ export class PcScene implements SceneHandle {
 
   private readonly onDown = (e: PointerEvent): void => {
     this.down = { x: e.clientX, y: e.clientY }
-    // a manual orbit stops the automatic camera glide
-    this.focusing = 0
   }
 
   private readonly onMove = (e: PointerEvent): void => {
+    // turning the view by hand stops the automatic camera glide; a plain tap does not
+    if (this.down && Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > CLICK_PX) this.focusing = 0
     if (!this.view.held) return
     this.setPointer(e)
     this.ray.ray.intersectPlane(this.holdPlane, this.holdAt)
@@ -368,11 +484,12 @@ export class PcScene implements SceneHandle {
       }
       return
     }
-    const targets: Object3D[] = [...[...this.placedMeshes.values()].map((p) => p.mesh), this.board]
+    const targets: Object3D[] = [...this.buttons.map((b) => b.mesh), ...[...this.placedMeshes.values()].map((p) => p.mesh), this.benchModel]
     if (this.lever) targets.unshift(this.lever)
     const hit = this.ray.intersectObjects(targets, true)[0]
     for (let obj: Object3D | null = hit?.object ?? null; obj; obj = obj.parent) {
-      if (obj.userData.lever) return this.events.onLever()
+      if (obj.userData.lever && this.layout.lever) return this.events.onControl(this.layout.lever.control)
+      if (typeof obj.userData.control === "string") return this.events.onControl(obj.userData.control)
       if (typeof obj.userData.part === "string") return this.events.onInspect(obj.userData.part)
     }
   }
