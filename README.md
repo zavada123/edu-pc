@@ -4,7 +4,23 @@
 
 Students look at the parts of a computer, put them in the right places step by step, answer a short question before key steps and get an explanation for every mistake: a CPU turned the wrong way, RAM in the wrong slots, the cooler cable on the wrong header. The student-facing text is in Ukrainian. It is built for [EduProstir](https://eduprostir.com).
 
-> Status: stage 1 of the [plan](#roadmap). The core (step machine, scenarios, checks) is ready and tested; the 3D scene and the React component come next.
+> Status: stage 2 of the [plan](#roadmap). The core and the 3D bench for the grade 8 desk scenario work on a computer and a phone; building into the case and the grade 3–4 scenario come next.
+
+## Component
+
+```tsx
+import { EduPc } from "edu-pc/react"
+import { grade8Club } from "edu-pc/core"
+import "edu-pc/style.css"
+
+<EduPc scenario={grade8Club} onComplete={(report) => save(report)} />
+```
+
+- A 3D bench (three.js, loaded on first use as a separate chunk): a motherboard of our own design, every part modelled in code, realistic materials.
+- Take a part from the tray, turn it with ⟲ ⟳ (or Q / E), tap the place for it. Click the socket lever to lift or lower it. Click a part to read what it does.
+- The next target glows (the «Підказки» switch turns it off), the camera glides to it, and every mistake is explained.
+- Props: `hints`, `lightGraphics` (fewer pixels for old computers), `onAction` (every action, for a replay log), `onComplete` (the report), `layout` (your own 3D layout for a scenario).
+- Demo: `npm run dev`; `?light` turns on light graphics.
 
 ## Core
 
@@ -36,7 +52,7 @@ report(grade8Club, state)  // steps done, mistakes, mistakes by lesson goal (A, 
 ## Roadmap
 
 1. Core and the grade 8 desk scenario ✓
-2. 3D scene (three.js, parts modelled in code): pick up, turn, place, highlights
+2. 3D scene (three.js, parts modelled in code): pick up, turn, place, highlights ✓
 3. Building into the case, grade 8
 4. Grade 3–4 scenario: unboxing, sorting input and output devices, plugging in
 5. Data path, upgrade and «power off» tasks
@@ -47,9 +63,11 @@ report(grade8Club, state)  // steps done, mistakes, mistakes by lesson goal (A, 
 
 ```sh
 npm ci
+npm run dev       # demo page
 npm test          # vitest
 npm run typecheck
-npm run build:lib # lib/core.js and types
+npm run build     # demo in dist/
+npm run build:lib # lib/: core.js, react.js, the scene chunk, style.css and types
 ```
 
 ## License
