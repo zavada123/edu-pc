@@ -17,6 +17,8 @@ export interface SlotPose {
     readonly roll?: number;
     /** Shrink the placed part to fit the area, as a big device in a sorting basket. */
     readonly fit?: boolean;
+    /** Turn of the placed part around the vertical, in radians: a plug in the back of the system unit, which faces away. */
+    readonly yaw?: number;
     /** Slots of one basket share a group: a tap on a full spot puts the part in a free one. */
     readonly group?: string;
 }
@@ -165,9 +167,10 @@ export declare const grade8CaseLayout: SceneLayout;
 /** The case scenario's computer, built and switched on, with markers for the data path and a smartphone on the desk. */
 export declare const grade8LabLayout: SceneLayout;
 /**
- * The finished computer from the grade 8 case scenario stands upright at the left of the desk, its back
- * (with the ports) towards the student and its glass side to the right. A point in that case's
- * coordinates, once the case stands: its top (-x) goes up, its open side (+y) to the right.
+ * The finished computer from the grade 8 case scenario stands upright at the right of the desk, its front
+ * towards the student, its back (with the ports) towards the wall and its glass side towards the monitor.
+ * A point in that case's coordinates, once the case stands: its top (-x) goes up, its open side (+y) to the
+ * left, its front (-z) towards the student.
  */
 export declare const TOWER_AT: Vec3;
 export declare const standing: (v: Vec3) => Vec3;

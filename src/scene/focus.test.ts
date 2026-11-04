@@ -46,12 +46,19 @@ describe("focusPoint", () => {
     expect(distance).toBeGreaterThan(60)
   })
 
-  test("stands the case up: its top goes up, its open side to the right", () => {
+  test("stands the case up: its top goes up, its open side towards the desk, its back away from the student", () => {
     const [x, y] = standing([-21.5, 21, 0])
-    const [x0, y0] = standing([21.5, 0, 0])
+    const [x0, y0, z0] = standing([21.5, 0, 0])
+    const [, , zBack] = standing([0, 0, 22.5])
     expect(y).toBeGreaterThan(y0)
-    expect(x).toBeGreaterThan(x0)
+    expect(x).toBeLessThan(x0)
     expect(y0).toBe(0)
+    expect(zBack).toBeLessThan(z0)
+  })
+
+  test("goes round to the back of the system unit for the cables", () => {
+    const [, , view] = focusPoint(grade3DeskLayout, ["hdmi", "usb1"], undefined)
+    expect(view[2]).toBeLessThan(0)
   })
 
   test("stands back far enough for the data path from the USB port to the monitor", () => {

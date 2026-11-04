@@ -63,6 +63,8 @@ const faultScenario = (base: Scenario, grade: number, fault: Fault, controls: Re
     id: fault.id,
     grade,
     title: fault.title,
+    topic: "fault",
+    summary: `${firstSentence(fault.symptom)} Знайди причину й виправ.`,
     goals: GOALS,
     story: fault.story,
     parts: base.parts,
@@ -72,6 +74,8 @@ const faultScenario = (base: Scenario, grade: number, fault: Fault, controls: Re
     steps
   }
 }
+
+const firstSentence = (text: string): string => text.split(/(?<=\.)\s/)[0] ?? text
 
 /** The built computer with some slots changed: a part moved elsewhere, or a slot left empty (""). */
 const withFault = (base: Scenario, change: Readonly<Record<string, string>>): Readonly<Record<string, string>> => {
@@ -194,6 +198,8 @@ export const grade3FaultStrip: Scenario = {
   id: "grade3-fault-strip",
   grade: 3,
   title: "Несправність: нічого не вмикається",
+  topic: "fault",
+  summary: "Кнопку живлення натискають, а комп'ютер не вмикається зовсім. Знайди причину й виправ.",
   goals: GOALS,
   story: [GRADE3_STORY],
   parts: grade3Base.parts,

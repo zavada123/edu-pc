@@ -7,7 +7,9 @@ import { focusPoint, focusStops } from "../scene/focus.ts"
 import { layouts, type SceneLayout } from "../scene/layout.ts"
 import type { PcScene, SceneHandle } from "../scene/PcScene.ts"
 import { DoneCard, HeldBar, PartInfo, QuestionCard, SortCard, StepCard, StepList, ToastLine, Tray, UpgradeCard } from "./panels.tsx"
+import { useFullScreen } from "./fullscreen.ts"
 import { useBuild, type BuildCallbacks } from "./useBuild.ts"
+import "./tokens.css"
 import "./edu-pc.css"
 
 const DONE_DELAY_MS = 2600
@@ -30,6 +32,10 @@ export interface EduPcProps extends BuildCallbacks {
   readonly lightGraphics?: boolean
   /** Called once the 3D scene has loaded. For automated tests and teacher tools. */
   readonly onSceneReady?: ((scene: SceneHandle) => void) | undefined
+  /** Shows «Наступне завдання» on the summary at the end; the page opens the next exercise. */
+  readonly onNext?: (() => void) | undefined
+  /** Where to start: a saved session (`replay` of its action log). Defaults to the scenario's start. */
+  readonly initialState?: BuildState | undefined
 }
 
 /** The PC-building trainer: a 3D bench with the steps, the parts tray and the questions around it. */
@@ -40,13 +46,17 @@ export const EduPc = ({
   lightGraphics = false,
   onAction,
   onComplete,
-  onSceneReady
+  onSceneReady,
+  onNext,
+  initialState
 }: EduPcProps) => {
   const sceneLayout = layout ?? layouts[scenario.id]
   const callbacks = useMemo(() => ({ onAction, onComplete }), [onAction, onComplete])
-  const build = useBuild(scenario, callbacks)
+  const build = useBuild(scenario, callbacks, initialState)
   const { state, step, hint, held } = build
   const [showHints, setShowHints] = useState(hints)
+  const [allTags, setAllTags] = useState(false)
+  const { full, toggle: toggleFull } = useFullScreen()
   const [sceneError, setSceneError] = useState<string | null>(null)
   const [sceneReady, setSceneReady] = useState(0)
   const [icons, setIcons] = useState<Partial<Record<string, string>>>({})
@@ -114,6 +124,7 @@ export const EduPc = ({
   const cardStep = (step?.kind === "upgrade" || step?.kind === "sort") && !(step.question && !state.answered.includes(step.id))
   const path = step?.kind === "sequence" ? { stops: step.stops, picked: state.picked } : null
   useEffect(() => {
+    sceneRef.current?.showAllTags(allTags)
     sceneRef.current?.update({ placed: state.placed, controls: state.controls, inspected: state.inspected, held, hint: shownHint, path })
   })
 
@@ -140,7 +151,11 @@ export const EduPc = ({
       if (!handlers.current.held) return
       if (e.key === "q" || e.key === "Q" || e.key === "й" || e.key === "Й") handlers.current.rotate(-1)
       else if (e.key === "e" || e.key === "E" || e.key === "у" || e.key === "У") handlers.current.rotate(1)
-      else if (e.key === "Escape") handlers.current.putBack()
+      else if (e.key === "Escape") {
+        // the part goes back to the tray; the same Esc does not also leave the full screen
+        e.preventDefault()
+        handlers.current.putBack()
+      }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
@@ -168,16 +183,42 @@ export const EduPc = ({
   }
 
   return (
-    <div className="edu-pc">
+    <div className={`edu-pc${full ? " is-full" : ""}`}>
       <header className="edu-pc-head">
         <h1 className="edu-pc-title">
           {scenario.grade > 0 && <span className="edu-pc-grade">{scenario.grade} клас</span>}
           {scenario.title}
         </h1>
-        <label className="edu-pc-switch">
-          <input type="checkbox" checked={showHints} onChange={(e) => setShowHints(e.target.checked)} />
-          Підказки
-        </label>
+        <div className="edu-pc-tools">
+          <label className="edu-pc-switch">
+            <input type="checkbox" checked={allTags} onChange={(e) => setAllTags(e.target.checked)} />
+            Назви гнізд
+          </label>
+          <label className="edu-pc-switch">
+            <input type="checkbox" checked={showHints} onChange={(e) => setShowHints(e.target.checked)} />
+            Підказки
+          </label>
+          <button
+            type="button"
+            className="edu-pc-full"
+            aria-pressed={full}
+            aria-label={full ? "Вийти з повного екрана" : "На весь екран"}
+            onClick={toggleFull}
+            title={full ? "Вийти з повного екрана (Esc)" : "На весь екран"}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d={full ? "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" : "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="edu-pc-full-text">{full ? "Згорнути" : "На весь екран"}</span>
+          </button>
+        </div>
       </header>
       <div className="edu-pc-body">
         <nav className="edu-pc-side">
@@ -220,7 +261,7 @@ export const EduPc = ({
         <SortCard step={step} sorted={state.sorted} note={mistakeNote} onSort={(item, memory) => build.act({ type: "sort", item, memory })} />
       )}
       {question && step && <QuestionCard step={step} question={question} onAnswer={(answer) => build.act({ type: "answer", answer })} />}
-      {showDone && <DoneCard result={report(scenario, state)} goals={scenario.goals ?? {}} onRestart={build.restart} />}
+      {showDone && <DoneCard result={report(scenario, state)} goals={scenario.goals ?? {}} onRestart={build.restart} onNext={onNext} />}
     </div>
   )
 }

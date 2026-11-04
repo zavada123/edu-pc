@@ -20,8 +20,13 @@ import "edu-pc/style.css"
 - Take a part from the tray (or from its basket or open box on the desk), turn it with ⟲ ⟳ (or Q / E), tap the place for it. Click the socket lever or a power button to switch them. Click a part or a box to read what it does. Cables run from the power supply, or from the devices on the desk, to the plugs you connect.
 - Once the computer is on, its fans spin and the monitor on the desk lights up.
 - The next target glows (the «Підказки» switch turns it off), the camera glides to it, and every mistake is explained.
-- Props: `hints`, `lightGraphics` (fewer pixels for old computers), `onAction` (every action, for a replay log), `onComplete` (the report), `layout` (your own 3D layout for a scenario).
-- Demo: `npm run dev`; `?s=grade8-club-case` opens the case scenario, `?s=grade8-club-lab` the data path, upgrade and power-off tasks, `?s=grade3-new-box` the grade 3–4 one, `?light` turns on light graphics.
+- Slot names: when a part is in hand, a tag names every slot it fits («A2», «Гніздо HDMI»); the pointer over a slot outlines it and says what goes there and whether the part in hand fits. The «Назви гнізд» switch tags every free slot.
+- «На весь екран» covers the page with the trainer (and asks the browser for full screen where it can); Esc or the button leaves it.
+- On the grade 3–4 desk the system unit stands with its front to the student; for the cables the camera goes round to its back. A part in hand never goes inside it.
+- Props: `hints`, `lightGraphics`, `onNext` (a «Наступне завдання» button at the end), `initialState` (resume a saved session) (fewer pixels for old computers), `onAction` (every action, for a replay log), `onComplete` (the report), `layout` (your own 3D layout for a scenario).
+- `TaskCatalog` shows the exercises as cards by grade (kind, title, what to do, steps, a check mark when done); `nextScenario` from `edu-pc/core` picks the next one not done.
+- Every color comes from the EduProstir palette (`src/ui/tokens.css`).
+- Demo: `npm run dev`; `?cards` shows the task cards over the trainer, `?step=4` starts at step 4; `?s=grade8-club-case` opens the case scenario, `?s=grade8-club-lab` the data path, upgrade and power-off tasks, `?s=grade3-new-box` the grade 3–4 one, `?light` turns on light graphics.
 
 ## Core
 

@@ -164,11 +164,13 @@ export const ToastLine = ({ toast }: { toast: Toast | null }) =>
 export const DoneCard = ({
   result,
   goals,
-  onRestart
+  onRestart,
+  onNext
 }: {
   result: Report
   goals: Readonly<Partial<Record<string, string>>>
   onRestart: () => void
+  onNext?: (() => void) | undefined
 }) => (
   <div className="edu-pc-overlay">
     <div className="edu-pc-question edu-pc-done">
@@ -188,9 +190,16 @@ export const DoneCard = ({
           ))}
         </ul>
       )}
-      <button type="button" className="edu-pc-answer" onClick={onRestart}>
-        Зібрати ще раз
-      </button>
+      <div className="edu-pc-done-actions">
+        {onNext && (
+          <button type="button" className="edu-pc-primary" onClick={onNext}>
+            Наступне завдання
+          </button>
+        )}
+        <button type="button" className="edu-pc-answer" onClick={onRestart}>
+          Пройти ще раз
+        </button>
+      </div>
     </div>
   </div>
 )

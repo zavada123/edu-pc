@@ -8,6 +8,8 @@ export interface Slot {
   readonly id: string
   /** The name the student sees: «Слот DIMM A2», «Гніздо HDMI», «Кошик „Показує результат“». */
   readonly label: string
+  /** A short name for the tag over the slot in 3D, where slots stand close together: «A2». Defaults to `label`. */
+  readonly tag?: string
   readonly accepts: ReadonlyArray<PartKind>
   /** The only way a part fits, in quarter turns. Leave out when any turn fits (a basket, a cable). */
   readonly turn?: Turn
@@ -156,12 +158,27 @@ export interface SortStep extends StepBase {
 
 export type Step = InspectStep | PlaceStep | SetStep | SequenceStep | UpgradeStep | SortStep
 
+/** What kind of exercise it is, for the task cards: build, connect devices, explore the built computer, find a fault. */
+export type ScenarioTopic = "build" | "connect" | "explore" | "fault"
+
+/** Names of the kinds of exercises on the task cards. */
+export const TOPIC_NAMES: Readonly<Record<ScenarioTopic, string>> = {
+  build: "Збирання",
+  connect: "Підключення",
+  explore: "Дослідження",
+  fault: "Несправність"
+}
+
 /** One exercise: the parts and places on the desk, how it starts, and the steps in order. */
 export interface Scenario {
   readonly id: string
   /** School grade shown on the task card; 0 hides it. */
   readonly grade: number
   readonly title: string
+  /** The kind of exercise, for its task card. Defaults to «build». */
+  readonly topic?: ScenarioTopic
+  /** What the student does, in one sentence, for the task card. Defaults to the first line of the story. */
+  readonly summary?: string
   /** The story the exercise starts with, a sentence per line. */
   readonly story: ReadonlyArray<string>
   readonly parts: ReadonlyArray<Part>

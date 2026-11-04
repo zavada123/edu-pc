@@ -18,7 +18,7 @@ export interface BuildCallbacks {
     readonly onComplete?: ((result: Report) => void) | undefined;
 }
 /** The trainer's state for React: the build state, the part in hand and the last message. */
-export declare const useBuild: (scenario: Scenario, callbacks: BuildCallbacks) => {
+export declare const useBuild: (scenario: Scenario, callbacks: BuildCallbacks, initial?: BuildState) => {
     state: BuildState;
     step: import("../core.ts").Step | undefined;
     hint: import("../core.ts").Hint;

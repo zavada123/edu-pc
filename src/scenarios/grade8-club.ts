@@ -8,6 +8,8 @@ export const grade8Club: Scenario = {
   id: "grade8-club-desk",
   grade: 8,
   title: "Старий комп'ютер гуртка: збираємо плату",
+  topic: "build",
+  summary: "Встанови на материнську плату процесор, кулер, оперативну пам'ять і SSD.",
   goals: { B: "процесор", C: "види пам'яті" },
   story: [
     "Гурток відеоблогу отримав старий комп'ютер. Відео на ньому монтується цілу вічність.",
@@ -74,10 +76,10 @@ export const grade8Club: Scenario = {
     { id: "coolerMount", label: "Кріплення кулера", accepts: ["cooler"] },
     { id: "cpuFan", label: "Роз'єм CPU_FAN", accepts: ["fanCable"] },
     { id: "sysFan", label: "Роз'єм SYS_FAN", accepts: ["fanCable"] },
-    { id: "dimmA1", label: "Слот пам'яті A1", accepts: ["ram"], turn: 0 },
-    { id: "dimmA2", label: "Слот пам'яті A2", accepts: ["ram"], turn: 0 },
-    { id: "dimmB1", label: "Слот пам'яті B1", accepts: ["ram"], turn: 0 },
-    { id: "dimmB2", label: "Слот пам'яті B2", accepts: ["ram"], turn: 0 },
+    { id: "dimmA1", label: "Слот пам'яті A1", tag: "A1", accepts: ["ram"], turn: 0 },
+    { id: "dimmA2", label: "Слот пам'яті A2", tag: "A2", accepts: ["ram"], turn: 0 },
+    { id: "dimmB1", label: "Слот пам'яті B1", tag: "B1", accepts: ["ram"], turn: 0 },
+    { id: "dimmB2", label: "Слот пам'яті B2", tag: "B2", accepts: ["ram"], turn: 0 },
     { id: "m2Slot", label: "Слот M.2", accepts: ["m2ssd"] }
   ],
   controls: [{ id: "socketLever", label: "Важіль сокета", values: ["down", "up"] }],

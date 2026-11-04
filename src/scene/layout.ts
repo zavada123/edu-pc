@@ -19,6 +19,8 @@ export interface SlotPose {
   readonly roll?: number
   /** Shrink the placed part to fit the area, as a big device in a sorting basket. */
   readonly fit?: boolean
+  /** Turn of the placed part around the vertical, in radians: a plug in the back of the system unit, which faces away. */
+  readonly yaw?: number
   /** Slots of one basket share a group: a tap on a full spot puts the part in a free one. */
   readonly group?: string
 }
@@ -293,12 +295,17 @@ export const grade8LabLayout: SceneLayout = {
 // ---------- the grade 3–4 desk ----------
 
 /**
- * The finished computer from the grade 8 case scenario stands upright at the left of the desk, its back
- * (with the ports) towards the student and its glass side to the right. A point in that case's
- * coordinates, once the case stands: its top (-x) goes up, its open side (+y) to the right.
+ * The finished computer from the grade 8 case scenario stands upright at the right of the desk, its front
+ * towards the student, its back (with the ports) towards the wall and its glass side towards the monitor.
+ * A point in that case's coordinates, once the case stands: its top (-x) goes up, its open side (+y) to the
+ * left, its front (-z) towards the student.
  */
-export const TOWER_AT: Vec3 = [-78, 0, -22.5]
-export const standing = (v: Vec3): Vec3 => [v[1] + TOWER_AT[0], CASE_SIZE[0] / 2 - v[0], v[2] + TOWER_AT[2]]
+export const TOWER_AT: Vec3 = [78, 0, -22.5]
+export const standing = (v: Vec3): Vec3 => [TOWER_AT[0] - v[1], CASE_SIZE[0] / 2 - v[0], TOWER_AT[2] - v[2]]
+/** The tower is turned half round: its back, with the ports, faces away from the student. */
+const TOWER_YAW = Math.PI
+/** The ports are seen from behind the system unit: the camera goes round to its back for the cables. */
+const BEHIND: Vec3 = [-0.35, 0.5, -1]
 
 const DESK_MONITOR: Vec3 = [-22, 0, -40]
 const DESK_KEYBOARD: Vec3 = [-22, 0, -16]
@@ -318,7 +325,12 @@ const basket = (x: number, n: number, i: number, group: string): SlotPose => {
 }
 
 /** A port on the back of the standing tower: a big click area, the cable coming from the device on the desk. */
-const towerPort = (slot: string): SlotPose => ({ at: standing(grade8CaseLayout.slots[slot]?.at ?? [0, 0, 0]), area: [2.2, 2, 2.2], view: BACK })
+const towerPort = (slot: string): SlotPose => ({
+  at: standing(grade8CaseLayout.slots[slot]?.at ?? [0, 0, 0]),
+  area: [2.2, 2, 2.2],
+  view: BEHIND,
+  yaw: TOWER_YAW
+})
 const usbPort = (slot: string): SlotPose => ({
   ...towerPort(slot),
   group: "usb",
@@ -354,9 +366,9 @@ export const grade3DeskLayout: SceneLayout = {
     { control: "monitorPower", at: [DESK_MONITOR[0] + 22, DESK_MONITOR[1] + 12.6, DESK_MONITOR[2] + 0.9], normal: [0, 0, 1], size: 0.55, when: "deskMonitor" }
   ],
   crates: [
-    { at: [CRATE_X.in, 0, CRATE_Z], label: ["Передає", "в комп'ютер"], colour: "#3f7cc4" },
-    { at: [CRATE_X.out, 0, CRATE_Z], label: ["Показує", "результат"], colour: "#d0782f" },
-    { at: [CRATE_X.store, 0, CRATE_Z], label: ["Зберігає", "на потім"], colour: "#3c9a5f" }
+    { at: [CRATE_X.in, 0, CRATE_Z], label: ["Передає", "в комп'ютер"], colour: "#2988cc" },
+    { at: [CRATE_X.out, 0, CRATE_Z], label: ["Показує", "результат"], colour: "#f5a524" },
+    { at: [CRATE_X.store, 0, CRATE_Z], label: ["Зберігає", "на потім"], colour: "#1fa35c" }
   ],
   boxes: [
     { part: "monitor", at: [-50, 0, 8] },
@@ -366,12 +378,12 @@ export const grade3DeskLayout: SceneLayout = {
     { part: "printer", at: [30, 0, 8] },
     { part: "flash", at: [50, 0, 8] }
   ],
-  finale: { at: [-34, 18, -30], distance: 125, view: [0.25, 0.5, 1] }
+  finale: { at: [30, 18, -30], distance: 135, view: [-0.1, 0.5, 1] }
 }
 
 // ---------- troubleshooting: the built computers, one fault each ----------
 
-const STRIP_AT: Vec3 = [-40, 0, 8]
+const STRIP_AT: Vec3 = [44, 0, 8]
 
 /** The grade 8 case, built: the picture needs the monitor on the graphics card and power to the processor; the files need the disk's cable. */
 export const grade8FaultLayout: SceneLayout = {
@@ -404,7 +416,7 @@ export const grade3FaultLayout: SceneLayout = {
     needs: [{ slot: "hdmi", screen: "dark" }]
   },
   // the result view takes in the power strip in front, too
-  finale: { at: [-34, 12, -18], distance: 140, view: [0.2, 0.6, 1] }
+  finale: { at: [26, 12, -18], distance: 140, view: [-0.1, 0.6, 1] }
 }
 
 /** Layouts by scenario id. */

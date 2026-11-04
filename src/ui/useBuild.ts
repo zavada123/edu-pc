@@ -23,8 +23,8 @@ export interface BuildCallbacks {
 }
 
 /** The trainer's state for React: the build state, the part in hand and the last message. */
-export const useBuild = (scenario: Scenario, callbacks: BuildCallbacks) => {
-  const [state, setState] = useState<BuildState>(() => startState(scenario))
+export const useBuild = (scenario: Scenario, callbacks: BuildCallbacks, initial?: BuildState) => {
+  const [state, setState] = useState<BuildState>(() => initial ?? startState(scenario))
   const [held, setHeld] = useState<Held | null>(null)
   const [toast, setToast] = useState<Toast | null>(null)
   const [info, setInfo] = useState<string | null>(null)
