@@ -12,6 +12,7 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   type Object3D,
+  PCFShadowMap,
   PerspectiveCamera,
   Plane,
   PMREMGenerator,
@@ -26,10 +27,12 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
 import type { Hint } from "../core/progress.ts"
 import type { Placed } from "../core/machine.ts"
-import type { Turn } from "../core/parts.ts"
+import type { PartKind, Turn } from "../core/parts.ts"
 import type { Scenario } from "../core/scenario.ts"
 import type { SceneLayout, Vec3 } from "./layout.ts"
-import { buildBoard, buildDesk, buildLever, buildPart } from "./parts.ts"
+import { buildBoard, buildDesk, buildLever } from "./board.ts"
+import { renderIcons } from "./icons.ts"
+import { buildPart } from "./parts.ts"
 
 export interface SceneEvents {
   /** The student clicked a slot while holding a part. */
@@ -103,6 +106,9 @@ export class PcScene implements SceneHandle {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, light ? 1 : 2))
     this.renderer.outputColorSpace = SRGBColorSpace
     this.renderer.toneMapping = ACESFilmicToneMapping
+    // soft shadows ground the parts on the board; old computers skip them
+    this.renderer.shadowMap.enabled = !light
+    this.renderer.shadowMap.type = PCFShadowMap
     this.renderer.domElement.className = "edu-pc-canvas"
     host.appendChild(this.renderer.domElement)
 
@@ -113,6 +119,13 @@ export class PcScene implements SceneHandle {
     this.scene.add(new HemisphereLight("#ffffff", "#5a4a3a", 0.6))
     const sun = new DirectionalLight("#ffffff", 1.6)
     sun.position.set(-20, 40, 25)
+    if (!light) {
+      sun.castShadow = true
+      sun.shadow.mapSize.set(2048, 2048)
+      Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 10, far: 90 })
+      sun.shadow.bias = -0.0005
+      sun.shadow.normalBias = 0.03
+    }
     this.scene.add(sun)
 
     this.scene.add(buildDesk())
@@ -179,6 +192,11 @@ export class PcScene implements SceneHandle {
     p.project(this.camera)
     const r = this.renderer.domElement.getBoundingClientRect()
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+
+  /** Tray pictures of the given kinds, drawn from the scene's own models. */
+  icons(kinds: ReadonlyArray<PartKind>): Partial<Record<PartKind, string>> {
+    return renderIcons(this.renderer, this.scene.environment, kinds)
   }
 
   dispose(): void {

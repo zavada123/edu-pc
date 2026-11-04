@@ -86,12 +86,15 @@ export const Tray = ({
   held,
   highlighted,
   boardPart,
+  icons,
   onPick
 }: {
   parts: ReadonlyArray<Part>
   held: Held | null
   highlighted: ReadonlyArray<string>
   boardPart: string | undefined
+  /** Pictures rendered from the 3D models; until they are ready, simple drawn icons stand in. */
+  icons: Partial<Record<string, string>>
   onPick: (part: Part) => void
 }) => (
   <div className="edu-pc-tray" role="toolbar" aria-label="Деталі">
@@ -101,7 +104,11 @@ export const Tray = ({
       if (highlighted.includes(part.id)) classes.push("is-hint")
       return (
         <button key={part.id} type="button" className={classes.join(" ")} aria-pressed={held?.part === part.id} onClick={() => onPick(part)}>
-          <span className={`edu-pc-part-icon kind-${part.kind}`} aria-hidden="true" />
+          {icons[part.kind] ? (
+            <img className="edu-pc-part-pic" src={icons[part.kind]} alt="" width={44} height={44} />
+          ) : (
+            <span className={`edu-pc-part-icon kind-${part.kind}`} aria-hidden="true" />
+          )}
           <span>{part.name}</span>
           {part.id === boardPart && <span className="edu-pc-part-note">на столі</span>}
         </button>

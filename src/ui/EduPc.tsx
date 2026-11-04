@@ -38,6 +38,7 @@ export const EduPc = ({
   const { state, step, hint, held } = build
   const [showHints, setShowHints] = useState(hints)
   const [sceneError, setSceneError] = useState<string | null>(null)
+  const [icons, setIcons] = useState<Partial<Record<string, string>>>({})
   const hostRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<PcScene | null>(null)
   // The scene's click handlers are made once; they call the latest ones through this ref.
@@ -71,7 +72,8 @@ export const EduPc = ({
           lightGraphics
         )
         setSceneError(null)
-        if (sceneRef.current) onSceneReadyRef.current?.(sceneRef.current)
+        setIcons(sceneRef.current.icons(scenario.parts.map((p) => p.kind)))
+        onSceneReadyRef.current?.(sceneRef.current)
       })
       .catch(() => setSceneError("Не вдалося показати 3D. Онови сторінку або спробуй інший браузер."))
     return () => {
@@ -159,6 +161,7 @@ export const EduPc = ({
             held={held}
             highlighted={shownHint?.parts ?? []}
             boardPart={sceneLayout.boardPart}
+            icons={icons}
             onPick={pick}
           />
         )}

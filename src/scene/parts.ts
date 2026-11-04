@@ -1,140 +1,241 @@
-import {
-  BoxGeometry,
-  CatmullRomCurve3,
-  CylinderGeometry,
-  Group,
-  type Material,
-  Mesh,
-  MeshStandardMaterial,
-  type Object3D,
-  SphereGeometry,
-  type Texture,
-  TubeGeometry,
-  Vector3
-} from "three"
+import { CatmullRomCurve3, CylinderGeometry, DoubleSide, type Group, Mesh, PlaneGeometry, SphereGeometry, TubeGeometry, Vector3 } from "three"
 import type { PartKind } from "../core/parts.ts"
-import type { Slot } from "../core/scenario.ts"
-import { BOARD_TOP, DIMM_KEY, DIMM_LENGTH, type SceneLayout } from "./layout.ts"
-import { BOARD_D, BOARD_W, boardTexture, cpuLidTexture, ramTexture, ssdTexture } from "./textures.ts"
+import { M, box, boxes, cylinder, group, mat, rounded, seeded, shadowed } from "./kit.ts"
+import { DIMM_KEY, DIMM_LENGTH } from "./layout.ts"
+import { chipTexture, cpuLidTexture, fingersTexture, hubTexture, stickerTexture } from "./textures.ts"
 
-/** A physically based material. Every part is modelled in code from boxes and cylinders. */
-const mat = (color: string, opts: { metal?: number; rough?: number; map?: Texture } = {}): MeshStandardMaterial =>
-  new MeshStandardMaterial({
-    color,
-    metalness: opts.metal ?? 0,
-    roughness: opts.rough ?? 0.6,
-    ...(opts.map ? { map: opts.map } : {})
-  })
-
-const M = {
-  blackPlastic: mat("#16181b", { rough: 0.45 }),
-  whitePlastic: mat("#e9e4d8", { rough: 0.5 }),
-  socket: mat("#e6dcc1", { rough: 0.55 }),
-  aluminium: mat("#c7ccd1", { metal: 0.9, rough: 0.35 }),
-  darkMetal: mat("#4a5058", { metal: 0.8, rough: 0.4 }),
-  copper: mat("#b87333", { metal: 0.9, rough: 0.3 }),
-  gold: mat("#d4af37", { metal: 1, rough: 0.3 }),
-  greenPcb: mat("#1f5e3a", { rough: 0.6 }),
-  paste: mat("#9aa0a6", { rough: 0.25, metal: 0.2 }),
-  rubber: mat("#2b2f36", { rough: 0.9 }),
-  cap: mat("#3b3f46", { metal: 0.6, rough: 0.35 })
-}
-
-type Size = readonly [number, number, number]
-
-/** A box with its bottom at `y` (not its centre), the way parts sit on the board. */
-const box = (size: Size, material: Material | Material[], x = 0, y = 0, z = 0): Mesh => {
-  const mesh = new Mesh(new BoxGeometry(size[0], size[1], size[2]), material)
-  mesh.position.set(x, y + size[1] / 2, z)
+/** A flat picture lying face up at height `y`. A canvas's top edge points to -z. */
+const decal = (w: number, d: number, map: ReturnType<typeof stickerTexture>, x = 0, y = 0, z = 0): Mesh => {
+  const mesh = new Mesh(new PlaneGeometry(w, d), mat("#ffffff", { map, rough: 0.55 }))
+  mesh.rotation.x = -Math.PI / 2
+  mesh.position.set(x, y, z)
   return mesh
 }
 
-const cylinder = (r: number, h: number, material: Material, x = 0, y = 0, z = 0): Mesh => {
-  const mesh = new Mesh(new CylinderGeometry(r, r, h, 24), material)
-  mesh.position.set(x, y + h / 2, z)
-  return mesh
-}
+// ---------- processor ----------
 
-const group = (...children: Object3D[]): Group => {
-  const g = new Group()
-  for (const c of children) g.add(c)
-  return g
-}
-
-// ---------- parts the student holds and places ----------
-
+/** Green substrate with tiny capacitors around a metal lid. The lid's triangle is in the front-left corner. */
 const cpu = (): Group => {
-  const lid = mat("#ffffff", { metal: 0.85, rough: 0.35, map: cpuLidTexture() })
-  // BoxGeometry face order: +x, -x, +y, -y, +z, -z. Only the top shows the printed lid.
-  return group(box([4, 0.12, 4], M.greenPcb), box([3.4, 0.28, 3.4], [M.aluminium, M.aluminium, lid, M.aluminium, M.aluminium, M.aluminium], 0, 0.12))
-}
-
-const pasteTube = (): Group => {
-  const tube = cylinder(0.35, 3, M.paste)
-  tube.rotation.z = Math.PI / 2
-  tube.position.y = 0.35
-  const tip = cylinder(0.12, 0.6, M.blackPlastic)
-  tip.rotation.z = Math.PI / 2
-  tip.position.set(1.8, 0.35, 0)
-  return group(tube, tip)
-}
-
-const pasteBlob = (): Group => {
-  const blob = new Mesh(new SphereGeometry(0.45, 20, 12), M.paste)
-  blob.scale.y = 0.35
-  blob.position.y = 0.1
-  return group(blob)
-}
-
-const cooler = (): Group => {
-  const g = group(box([3.6, 0.3, 3.6], M.copper))
-  for (let i = 0; i < 16; i++) g.add(box([7.2, 2.6, 0.08], M.aluminium, 0, 0.3, -3.5 + i * 0.466))
-  const fanFrame = cylinder(3.5, 0.9, M.blackPlastic, 0, 2.9)
-  g.add(fanFrame)
-  for (let i = 0; i < 7; i++) {
-    const blade = box([2.8, 0.05, 1], M.rubber, 0, 3.82)
-    blade.rotation.y = (i / 7) * Math.PI * 2
-    blade.translateX(1.6)
-    blade.rotation.x = 0.35
-    g.add(blade)
+  const rnd = seeded(5)
+  const caps: Array<[number, number, number]> = []
+  for (let i = 0; i < 26; i++) {
+    const along = -1.6 + rnd() * 3.2
+    const side = i % 4
+    const [x, z] = side === 0 ? [along, -1.85] : side === 1 ? [along, 1.85] : side === 2 ? [-1.85, along] : [1.85, along]
+    caps.push([x, 0.12, z])
   }
-  g.add(cylinder(1.1, 0.1, mat("#c9a227", { rough: 0.4 }), 0, 3.85))
+  return group(
+    rounded([4, 0.12, 4], 0.04, M.greenPcb),
+    boxes([0.14, 0.06, 0.08], M.smdTan, caps, (i) => (i % 4 < 2 ? [0.14, 0.06, 0.08] : [0.08, 0.06, 0.14])),
+    // the substrate's own gold triangle, under the lid's
+    box([0.3, 0.01, 0.3], M.gold, -1.8, 0.12, 1.8),
+    rounded([3.4, 0.28, 3.4], 0.08, M.aluminium, 0, 0.12),
+    decal(3.3, 3.3, cpuLidTexture(), 0, 0.405, 0)
+  )
+}
+
+// ---------- thermal paste ----------
+
+/** A syringe: white body, grey paste inside, a plunger and a nozzle. */
+const pasteSyringe = (): Group => {
+  const along = (mesh: Mesh): Mesh => {
+    mesh.rotation.z = Math.PI / 2
+    return mesh
+  }
+  const body = along(new Mesh(new CylinderGeometry(0.36, 0.36, 2.6, 24), mat("#f2f4f5", { rough: 0.3 })))
+  const fill = along(new Mesh(new CylinderGeometry(0.3, 0.3, 1.8, 20), M.paste))
+  fill.position.set(0.35, 0, 0)
+  const ring = along(new Mesh(new CylinderGeometry(0.38, 0.38, 0.18, 24), M.accent))
+  ring.position.set(-0.7, 0, 0)
+  const nozzle = along(new Mesh(new CylinderGeometry(0.08, 0.28, 0.7, 20), mat("#f2f4f5", { rough: 0.3 })))
+  nozzle.position.set(1.65, 0, 0)
+  const rod = along(new Mesh(new CylinderGeometry(0.1, 0.1, 1.1, 12), mat("#d9dde1", { rough: 0.4 })))
+  rod.position.set(-1.8, 0, 0)
+  const thumb = along(new Mesh(new CylinderGeometry(0.42, 0.42, 0.1, 24), mat("#d9dde1", { rough: 0.4 })))
+  thumb.position.set(-2.35, 0, 0)
+  const g = group(body, fill, ring, nozzle, rod, thumb)
+  g.position.y = 0.42
+  return group(g)
+}
+
+/** A pea-sized blob, flattened a little, on the CPU's lid. */
+const pasteBlob = (): Group => {
+  const blob = new Mesh(new SphereGeometry(0.5, 24, 14), M.paste)
+  blob.scale.set(1, 0.32, 0.9)
+  blob.position.y = 0.06
+  const tip = new Mesh(new SphereGeometry(0.16, 12, 8), M.paste)
+  tip.position.set(0.08, 0.2, -0.05)
+  return group(blob, tip)
+}
+
+// ---------- cooler ----------
+
+const fan = (y: number): Group => {
+  const frame = M.satinBlack
+  const g = group(
+    rounded([7.4, 1, 0.4], 0.12, frame, 0, y, -3.5),
+    rounded([7.4, 1, 0.4], 0.12, frame, 0, y, 3.5),
+    rounded([0.4, 1, 7.4], 0.12, frame, -3.5, y, 0),
+    rounded([0.4, 1, 7.4], 0.12, frame, 3.5, y, 0)
+  )
+  const shroud = new Mesh(new CylinderGeometry(3.4, 3.4, 1, 48, 1, true), mat("#202226", { rough: 0.45, metal: 0.2 }))
+  shroud.material.side = DoubleSide
+  shroud.position.y = y + 0.5
+  g.add(shroud)
+  for (const [cx, cz] of [[-3.3, -3.3], [3.3, -3.3], [-3.3, 3.3], [3.3, 3.3]] as const) {
+    g.add(rounded([1.1, 1, 1.1], 0.15, frame, cx, y, cz))
+    g.add(cylinder(0.22, 0.02, M.darkMetal, cx, y + 1, cz, 12))
+  }
+  // four struts from the motor to the corners, under the blades
+  for (let i = 0; i < 4; i++) {
+    const strut = box([4.4, 0.12, 0.22], frame, 2.2, y + 0.05, 0)
+    const holder = group(strut)
+    holder.rotation.y = Math.PI / 4 + (i * Math.PI) / 2
+    g.add(holder)
+  }
+  const blade = mat("#2a2d33", { rough: 0.4, metal: 0.1 })
+  for (let i = 0; i < 9; i++) {
+    const b = rounded([2.3, 0.06, 1.25], 0.03, blade, 2.1, 0, 0)
+    b.rotation.x = 0.5
+    b.position.y = y + 0.45
+    const holder = group(b)
+    holder.rotation.y = (i / 9) * Math.PI * 2
+    g.add(holder)
+  }
+  g.add(cylinder(1.05, 0.7, mat("#1b1d21", { rough: 0.4 }), 0, y + 0.25))
+  const hub = new Mesh(new CylinderGeometry(0.98, 0.98, 0.01, 40), [M.blackPlastic, mat("#ffffff", { map: hubTexture() }), M.blackPlastic])
+  hub.position.y = y + 0.96
+  g.add(hub)
   return g
 }
 
-const fanPlug = (): Group => {
-  const wire = new CatmullRomCurve3([new Vector3(0, 0.6, 0), new Vector3(0, 1.4, 0.8), new Vector3(0, 1.8, 2.2)])
-  return group(box([1.2, 0.6, 0.55], M.blackPlastic), new Mesh(new TubeGeometry(wire, 16, 0.12, 8), M.rubber))
+/** Copper base, heat pipes, a stack of thin aluminium fins and a 120 mm fan on top. About 4 cm tall. */
+const cooler = (): Group => {
+  const fins: Array<[number, number, number]> = []
+  for (let z = -3.35; z <= 3.36; z += 0.19) fins.push([0, 0.55, z])
+  const g = group(
+    rounded([3.6, 0.35, 3.6], 0.06, M.copper),
+    boxes([7, 2.3, 0.045], M.aluminium, fins),
+    // mounting brackets with a spring screw at each corner of the socket frame
+    rounded([8, 0.22, 0.7], 0.06, M.gunmetal, 0, 0.18, -3.6),
+    rounded([8, 0.22, 0.7], 0.06, M.gunmetal, 0, 0.18, 3.6)
+  )
+  for (let i = 0; i < 4; i++) {
+    const pipe = new Mesh(new CylinderGeometry(0.17, 0.17, 7.3, 16), M.copper)
+    pipe.rotation.z = Math.PI / 2
+    pipe.position.set(0, 0.5, -1.2 + i * 0.8)
+    g.add(pipe)
+  }
+  for (const [cx, cz] of [[-3.75, -3.6], [3.75, -3.6], [-3.75, 3.6], [3.75, 3.6]] as const) {
+    g.add(cylinder(0.2, 0.8, M.brushed, cx, -0.3, cz, 12))
+    g.add(cylinder(0.32, 0.18, M.darkMetal, cx, 0.4, cz, 6))
+  }
+  g.add(fan(2.9))
+  return g
 }
 
-/** A RAM module stands along z. Its notch is off centre, so turned around it no longer fits the slot's key. */
+// ---------- fan cable ----------
+
+/** The plug on the end of the fan's cable: a black housing and three twisted wires going up. */
+const fanPlug = (): Group => {
+  const g = group(rounded([1.2, 0.6, 0.55], 0.06, M.blackPlastic), box([0.9, 0.02, 0.18], M.chip, 0, 0.6, -0.12))
+  const colors = [M.blackPlastic, M.red, M.yellow]
+  colors.forEach((wireMat, i) => {
+    const dx = -0.3 + i * 0.3
+    const wire = new CatmullRomCurve3([
+      new Vector3(dx, 0.55, 0),
+      new Vector3(dx * 0.6, 1.3, 0.4),
+      new Vector3(dx * 0.3, 1.8, 1.4),
+      new Vector3(dx * 0.2, 2, 2.6)
+    ])
+    g.add(new Mesh(new TubeGeometry(wire, 24, 0.09, 8), wireMat))
+  })
+  return g
+}
+
+// ---------- memory ----------
+
+const goldFingers = (length: number, z: number): Mesh => {
+  const t = fingersTexture(Math.max(1, Math.round(length * 5.5)))
+  const face = mat("#ffffff", { map: t, metal: 0.85, rough: 0.3 })
+  return box([0.15, 0.36, length], [face, face, M.gold, M.gold, M.greenPcb, M.greenPcb], 0, 0, z)
+}
+
+/**
+ * A RAM module stands along z: a green board with memory chips on both sides, a sticker and gold contacts.
+ * Its notch is off centre, so turned around it no longer fits the slot's key.
+ */
 const ram = (): Group => {
-  const side = mat("#ffffff", { map: ramTexture() })
-  const faces = [side, side, M.greenPcb, M.greenPcb, M.greenPcb, M.greenPcb]
-  const upper = box([0.14, 2.75, DIMM_LENGTH], faces, 0, 0.35)
+  const g = group(rounded([0.14, 2.75, DIMM_LENGTH], 0.03, M.greenPcb, 0, 0.35))
+  const chip = mat("#ffffff", { map: chipTexture("D5 16G"), rough: 0.4 })
+  const chipFaces = (side: 1 | -1) => (side === 1 ? [chip, M.chip, M.chip, M.chip, M.chip, M.chip] : [M.chip, chip, M.chip, M.chip, M.chip, M.chip])
+  for (const side of [1, -1] as const) {
+    for (let i = 0; i < 8; i++) {
+      const z = -5.4 + i * 1.45 + (i >= 4 ? 0.35 : 0)
+      g.add(box([0.09, 0.95, 1.15], chipFaces(side), side * 0.11, 0.95, z))
+    }
+    // a row of tiny resistors above the contacts
+    const smd: Array<[number, number, number]> = []
+    for (let i = 0; i < 30; i++) smd.push([side * 0.09, 0.55, -6.2 + i * 0.43])
+    g.add(boxes([0.04, 0.08, 0.16], M.smdDark, smd))
+  }
+  const sticker = new Mesh(
+    new PlaneGeometry(5, 0.7),
+    mat("#ffffff", { map: stickerTexture(["EDU DDR5 16 ГБ", "4800 МГц · 1,1 В"]), rough: 0.6 })
+  )
+  sticker.rotation.y = Math.PI / 2
+  sticker.position.set(0.161, 2.5, 1.2)
+  g.add(sticker)
+  // the contacts, split by the notch at z = +DIMM_KEY
   const gap = 0.35
   const frontLen = DIMM_LENGTH / 2 - DIMM_KEY - gap / 2
   const backLen = DIMM_LENGTH / 2 + DIMM_KEY - gap / 2
-  const front = box([0.14, 0.35, frontLen], M.gold, 0, 0, DIMM_LENGTH / 2 - frontLen / 2)
-  const back = box([0.14, 0.35, backLen], M.gold, 0, 0, -DIMM_LENGTH / 2 + backLen / 2)
-  return group(upper, front, back)
+  g.add(goldFingers(frontLen, DIMM_LENGTH / 2 - frontLen / 2), goldFingers(backLen, -DIMM_LENGTH / 2 + backLen / 2))
+  return g
 }
 
+// ---------- M.2 SSD ----------
+
+/** A black stick along x: contacts at the -x end, a controller, memory chips under a sticker, a screw notch at +x. */
 const m2ssd = (): Group => {
-  const top = mat("#ffffff", { map: ssdTexture() })
-  return group(box([8, 0.1, 2.2], [M.blackPlastic, M.blackPlastic, top, M.blackPlastic, M.blackPlastic, M.blackPlastic]))
+  // the stripes run along x on the texture; turn them so the contacts line up across the stick
+  const stripes = fingersTexture(14)
+  stripes.center.set(0.5, 0.5)
+  stripes.rotation = Math.PI / 2
+  const fingerTop = mat("#ffffff", { map: stripes, metal: 0.85, rough: 0.3 })
+  const fingers = (len: number, z: number) => box([0.45, 0.105, len], [M.gold, M.gold, fingerTop, M.gold, M.gold, M.gold], -3.78, 0, z)
+  const g = group(
+    rounded([7.55, 0.1, 2.2], 0.03, M.blackPcb, 0.22, 0, 0),
+    fingers(1.4, 0.35),
+    fingers(0.5, -0.8),
+    // the controller with its marking, a small DRAM chip and the sticker over the memory chips
+    box([1.5, 0.12, 1.5], [M.chip, M.chip, mat("#ffffff", { map: chipTexture("EDU C1") }), M.chip, M.chip, M.chip], -2.3, 0.1, 0),
+    box([0.9, 0.1, 0.8], M.chip, -1, 0.1, 0.45),
+    box([2, 0.14, 1.7], M.chip, 0.6, 0.1, 0),
+    box([2, 0.14, 1.7], M.chip, 2.75, 0.1, 0),
+    decal(4.5, 1.9, stickerTexture(["EDU SSD 1 ТБ", "NVMe · PCIe 4.0"], "#1f2328", "#e9ecef"), 1.65, 0.255, 0)
+  )
+  // a few capacitors near the controller
+  const caps: Array<[number, number, number]> = []
+  for (let i = 0; i < 8; i++) caps.push([-3.2 + (i % 2) * 0.25, 0.1, -0.8 + Math.floor(i / 2) * 0.4])
+  g.add(boxes([0.14, 0.07, 0.08], M.smdTan, caps))
+  // the half-round screw notch at the far end, with its gold ring
+  g.add(cylinder(0.32, 0.105, M.gold, 4.0, 0, 0, 20), cylinder(0.18, 0.11, M.chip, 4.0, 0, 0, 16))
+  return g
 }
 
-/** A plain labelled box for parts later stages model properly (PSU, GPU, case, peripherals). */
-const placeholder = (): Group => group(box([4, 2, 4], M.darkMetal))
+/** Kinds that have a real model here; the rest get a placeholder for now. */
+export const MODELLED: ReadonlySet<PartKind> = new Set<PartKind>(["cpu", "thermalPaste", "cooler", "fanCable", "ram", "m2ssd"])
 
-/** The 3D model of a part. `placed` is the look once installed (thermal paste: the tube becomes a blob). */
-export const buildPart = (kind: PartKind, placed: boolean): Group => {
+/** A plain box for parts later stages model properly (PSU, GPU, case, peripherals). */
+const placeholder = (): Group => group(rounded([4, 2, 4], 0.2, M.darkMetal))
+
+const model = (kind: PartKind, placed: boolean): Group => {
   switch (kind) {
     case "cpu":
       return cpu()
     case "thermalPaste":
-      return placed ? pasteBlob() : pasteTube()
+      return placed ? pasteBlob() : pasteSyringe()
     case "cooler":
       return cooler()
     case "fanCable":
@@ -148,83 +249,5 @@ export const buildPart = (kind: PartKind, placed: boolean): Group => {
   }
 }
 
-// ---------- the board ----------
-
-const socketModel = (x: number, z: number): Group => {
-  const g = group(box([4, 0.42, 4], M.socket, x, BOARD_TOP, z), box([3.3, 0.02, 3.3], mat("#c9bc9b"), x, BOARD_TOP + 0.42, z))
-  // retention frame for the cooler around the socket
-  const frame = 0.5
-  g.add(box([8, 0.5, frame], M.blackPlastic, x, BOARD_TOP, z - 3.6))
-  g.add(box([8, 0.5, frame], M.blackPlastic, x, BOARD_TOP, z + 3.6))
-  g.add(box([frame, 0.5, 6.7], M.blackPlastic, x - 3.75, BOARD_TOP, z))
-  g.add(box([frame, 0.5, 6.7], M.blackPlastic, x + 3.75, BOARD_TOP, z))
-  return g
-}
-
-const dimmSlot = (x: number, z: number): Group =>
-  group(
-    box([0.7, 0.9, DIMM_LENGTH], M.blackPlastic, x, BOARD_TOP, z),
-    // the key: a small light mark where the module's notch must be
-    box([0.72, 0.03, 0.3], M.whitePlastic, x, BOARD_TOP + 0.9, z + DIMM_KEY),
-    box([0.75, 1.3, 0.5], M.whitePlastic, x, BOARD_TOP, z - DIMM_LENGTH / 2 - 0.25),
-    box([0.75, 1.3, 0.5], M.whitePlastic, x, BOARD_TOP, z + DIMM_LENGTH / 2 + 0.25)
-  )
-
-const fanHeader = (x: number, z: number): Group => {
-  const g = group(box([1.25, 0.25, 0.6], M.whitePlastic, x, BOARD_TOP, z))
-  for (let i = 0; i < 4; i++) g.add(box([0.07, 0.55, 0.07], M.gold, x - 0.38 + i * 0.25, BOARD_TOP, z))
-  return g
-}
-
-const m2Connector = (x: number, z: number): Group =>
-  group(box([0.8, 0.45, 2.4], M.blackPlastic, x, BOARD_TOP, z), cylinder(0.25, 0.35, M.gold, x + 8.2, BOARD_TOP, z))
-
-/** Parts of the board the student does not install: heatsinks, PCIe slots, the rear panel, the power connector. */
-const decorations = (socket: readonly [number, number]): Group => {
-  const [sx, sz] = socket
-  const g = group(
-    box([2.2, 2, 8.5], M.darkMetal, sx - 6.5, BOARD_TOP, sz + 0.5),
-    box([8.5, 2, 1.8], M.darkMetal, sx - 1.5, BOARD_TOP, sz - 5),
-    box([2.4, 3.6, 12], M.aluminium, -13.8, BOARD_TOP, -5.5),
-    box([9, 1.1, 0.85], M.blackPlastic, -6.5, BOARD_TOP, 8.8),
-    box([5, 1.1, 0.85], M.blackPlastic, -8.5, BOARD_TOP, 11),
-    box([4, 0.9, 4], M.aluminium, 4, BOARD_TOP, 6.5),
-    box([1.2, 1.6, 5.4], M.whitePlastic, 14.2, BOARD_TOP, -3)
-  )
-  for (let i = 0; i < 6; i++) g.add(cylinder(0.32, 0.9, M.cap, sx - 4.6 + i * 1.6, BOARD_TOP, sz - 6.6))
-  for (let i = 0; i < 4; i++) g.add(cylinder(0.32, 0.9, M.cap, sx + 4.6, BOARD_TOP, sz - 2.4 + i * 1.6))
-  return g
-}
-
-/** The motherboard with its sockets and slots, built from the scenario's slots and their places in the layout. */
-export const buildBoard = (layout: SceneLayout, slots: ReadonlyArray<Slot>): Group => {
-  const top = mat("#ffffff", { map: boardTexture(layout), rough: 0.55 })
-  const edge = mat("#17201d")
-  const g = group(box([BOARD_W, BOARD_TOP, BOARD_D], [edge, edge, top, edge, edge, edge]), decorations(layout.socket))
-  for (const slot of slots) {
-    const pose = layout.slots[slot.id]
-    if (!pose) continue
-    const [x, , z] = pose.at
-    if (slot.accepts.includes("cpu")) g.add(socketModel(x, z))
-    else if (slot.accepts.includes("ram")) g.add(dimmSlot(x, z))
-    else if (slot.accepts.includes("fanCable")) g.add(fanHeader(x, z))
-    else if (slot.accepts.includes("m2ssd")) g.add(m2Connector(x - 4.2, z))
-  }
-  return g
-}
-
-/** The socket lever: a metal bar lying along the socket's right side, pivoting at its front end. */
-export const buildLever = (length: number): Group => {
-  // its own material: the scene makes it glow when the lever is the next thing to click
-  const metal = mat("#d0d5da", { metal: 0.9, rough: 0.3 })
-  const bar = cylinder(0.16, length, metal)
-  bar.rotation.x = Math.PI / 2
-  bar.position.set(0, 0, -length / 2)
-  const grip = box([0.7, 0.3, 0.5], metal, -0.2, -0.15, -length)
-  const pivot = cylinder(0.3, 0.5, M.darkMetal, 0, -0.25, 0)
-  return group(bar, grip, pivot)
-}
-
-/** The desk and the antistatic mat under the board. */
-export const buildDesk = (): Group =>
-  group(box([160, 2, 110], mat("#7a5a3c", { rough: 0.75 }), 0, -2, 0), box([52, 0.04, 38], mat("#2f4a6b", { rough: 0.95 }), 0, 0, 0))
+/** The 3D model of a part. `placed` is the look once installed (thermal paste: the syringe becomes a blob). */
+export const buildPart = (kind: PartKind, placed: boolean): Group => shadowed(model(kind, placed))
