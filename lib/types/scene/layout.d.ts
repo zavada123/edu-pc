@@ -136,29 +136,31 @@ export declare const DESK_TOP = -0.05;
 export declare const DIMM_LENGTH = 13.3;
 /** Where the key in a RAM slot sits, along the slot from its centre. A module fits only with its notch here. */
 export declare const DIMM_KEY = 1.3;
-/** Our board (roughly ATX) in its own coordinates: where its connectors are, x and z. */
+/** Our board in its own coordinates: where its connectors are, x and z. */
 export declare const BOARD_CONNECTORS: {
-    readonly atx24: readonly [14.2, -3];
-    readonly eps8: readonly [-10.9, -10.75];
-    readonly sata: readonly [13.9, 7.2];
-    readonly pcieX16: readonly [-6.5, 8.8];
-    readonly pcieX1: readonly [-8.5, 11];
+    readonly atx24: readonly [11.5, -5.1];
+    readonly eps8: readonly [-6.5, -14.8];
+    readonly sata: readonly [11.4, 7.5];
+    readonly pcieX16: readonly [-3.3, 2.9];
+    readonly pcieX1: readonly [-6.6, 5];
 };
+/** The board's mounting holes, x and z: the case has a brass standoff under each. */
+export declare const BOARD_HOLES: ReadonlyArray<readonly [number, number]>;
 /**
  * The outer face of the rear panel on the board, along x, and the middle of each port: z along the panel
  * and y above the board. As on a real board, a port's long side points away from the board (along y).
  */
-export declare const REAR_FACE_X = -15.45;
+export declare const REAR_FACE_X = -12.75;
 export declare const REAR_PORTS: {
-    readonly usb1: readonly [-10.8, 0.95];
-    readonly usb2: readonly [-10.8, 2.55];
-    readonly hdmi: readonly [-8.4, 0.95];
-    readonly lan: readonly [-8.4, 2.6];
-    readonly usb3: readonly [-6, 0.95];
-    readonly usb4: readonly [-6, 2.55];
+    readonly usb1: readonly [-5.6, 0.6];
+    readonly usb2: readonly [-5.6, 1.35];
+    readonly hdmi: readonly [-7.5, 0.5];
+    readonly lan: readonly [-1.3, 2.6];
+    readonly usb3: readonly [-3.6, 0.6];
+    readonly usb4: readonly [-3.6, 1.35];
 };
 export declare const GRADE8_BOARD: BoardFace;
-/** Layout of the grade 8 desk scenario (a board of our own design, roughly ATX-sized). */
+/** Layout of the grade 8 desk scenario: the bare board on the mat. */
 export declare const grade8DeskLayout: SceneLayout;
 /**
  * The case lies on its side with the open side up, its back towards the student, so the ports on

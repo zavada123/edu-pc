@@ -3,6 +3,7 @@ import type { Placed } from "../core/machine.ts";
 import type { PartKind, Turn } from "../core/parts.ts";
 import type { Scenario } from "../core/scenario.ts";
 import { type SceneLayout, type Vec3 } from "./layout.ts";
+export { preloadModels } from "./gltf.ts";
 export interface SceneEvents {
     /** The student clicked a slot while holding a part. */
     readonly onSlot: (slotId: string) => void;

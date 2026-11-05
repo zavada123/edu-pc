@@ -13,6 +13,11 @@ export interface EduPcProps extends BuildCallbacks {
     readonly hints?: boolean;
     /** Fewer pixels and no antialiasing, for old school computers. */
     readonly lightGraphics?: boolean;
+    /**
+     * A folder with the realistic models of real parts (the GLB files from `public/models`). Without it
+     * every part is the simpler model built in code.
+     */
+    readonly modelsUrl?: string | undefined;
     /** Called once the 3D scene has loaded. For automated tests and teacher tools. */
     readonly onSceneReady?: ((scene: SceneHandle) => void) | undefined;
     /** Shows «Наступне завдання» on the summary at the end; the page opens the next exercise. */
@@ -21,4 +26,4 @@ export interface EduPcProps extends BuildCallbacks {
     readonly initialState?: BuildState | undefined;
 }
 /** The PC-building trainer: a 3D bench with the steps, the parts tray and the questions around it. */
-export declare const EduPc: ({ scenario, layout, hints, lightGraphics, onAction, onComplete, onSceneReady, onNext, initialState }: EduPcProps) => import("react").JSX.Element;
+export declare const EduPc: ({ scenario, layout, hints, lightGraphics, modelsUrl, onAction, onComplete, onSceneReady, onNext, initialState }: EduPcProps) => import("react").JSX.Element;
