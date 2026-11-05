@@ -199,6 +199,28 @@
   margin: 0;
 }
 
+.edu-pc-keys {
+  position: absolute;
+  z-index: 5;
+  right: 10px;
+  bottom: 10px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--edu-ink-0);
+  background: var(--edu-ink-800);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* a finger turns the view by dragging: there are no keys to name */
+@media (pointer: coarse) {
+  .edu-pc-keys {
+    display: none;
+  }
+}
+
 .edu-pc-toast {
   position: absolute;
   z-index: 30;

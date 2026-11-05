@@ -73,6 +73,8 @@ export declare class PcScene implements SceneHandle {
     private readonly propScreens;
     private screens;
     private readonly boxes;
+    /** Parts lying on the desk until they are taken: where each one lies and how big it is, for the camera. */
+    private readonly loose;
     private spinners;
     private readonly areas;
     private readonly placedMeshes;
@@ -91,6 +93,9 @@ export declare class PcScene implements SceneHandle {
     private readonly focusTarget;
     private focusFrom;
     private focusing;
+    /** Camera moves held down on the keyboard now. */
+    private readonly keys;
+    private lastFrame;
     private readonly resize;
     /** Name tags of the slots, over the canvas, and the note by the pointer. */
     private readonly tagLayer;
@@ -126,6 +131,13 @@ export declare class PcScene implements SceneHandle {
     private syncPlaced;
     /** A closed box on the desk, and the device it holds once opened. */
     private addBox;
+    /** A part lying on the desk: its lowest point rests at the pose. */
+    private addLoose;
+    /**
+     * Flies the camera to a part the student reads about: where it lies on the desk, its box, the slot
+     * it stands in, or the bench itself. False when the part is nowhere in the scene.
+     */
+    showPart(part: string): boolean;
     /** Markers of the data path: blue until tapped in turn, green once on the path, joined by arrows. */
     private syncPath;
     /** Boxes open once their part is read about; the device stands there until it is taken or placed. */
@@ -168,6 +180,11 @@ export declare class PcScene implements SceneHandle {
     private moveHeld;
     private setPointer;
     private readonly onDown;
+    private readonly onKeyDown;
+    private readonly onKeyUp;
+    private readonly onBlur;
+    /** Turns, tilts and zooms the camera around the point it looks at while keys are held. */
+    private steer;
     private readonly onMove;
     private readonly onLeave;
     private readonly onUp;

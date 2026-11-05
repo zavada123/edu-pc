@@ -53,6 +53,18 @@ export interface BoxPose {
     readonly part: string;
     readonly at: Vec3;
 }
+/**
+ * A part lying loose on the desk until it is taken or placed, so the student sees what there is to build with.
+ * `at` is where its lowest point rests: 0 on the mat, DESK_TOP beside it.
+ */
+export interface LoosePose {
+    readonly part: string;
+    readonly at: Vec3;
+    /** Turn around the vertical axis, in radians. */
+    readonly yaw?: number;
+    /** Laid on its side: a memory module lies flat instead of standing on its edge. */
+    readonly flat?: boolean;
+}
 /** A device standing on the desk for the whole exercise: the monitor, the keyboard, the mouse. */
 export interface PropPose {
     readonly kind: "monitor" | "keyboard" | "mouse" | "smartphone" | "powerStrip";
@@ -110,6 +122,7 @@ export interface SceneLayout {
     readonly stops?: Readonly<Record<string, Vec3>>;
     readonly crates?: ReadonlyArray<CratePose>;
     readonly boxes?: ReadonlyArray<BoxPose>;
+    readonly loose?: ReadonlyArray<LoosePose>;
     /** Where the camera goes once the exercise is done, to show the result: the lit monitor. */
     readonly finale?: {
         readonly at: Vec3;
@@ -118,6 +131,8 @@ export interface SceneLayout {
     };
 }
 export declare const BOARD_TOP = 0.16;
+/** Height of the bare desk top beside the mat, in bench coordinates: the mat lies a little higher. */
+export declare const DESK_TOP = -0.05;
 export declare const DIMM_LENGTH = 13.3;
 /** Where the key in a RAM slot sits, along the slot from its centre. A module fits only with its notch here. */
 export declare const DIMM_KEY = 1.3;

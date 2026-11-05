@@ -24,6 +24,7 @@ import {
   Scene,
   Sphere,
   SphereGeometry,
+  Spherical,
   Sprite,
   SpriteMaterial,
   SRGBColorSpace,
@@ -43,7 +44,7 @@ import { FRONT_VIEW } from "./focus.ts"
 import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
 import { noDiskTexture, signTexture } from "./textures.ts"
-import { GRADE8_BOARD, type SceneLayout, type Vec3 } from "./layout.ts"
+import { GRADE8_BOARD, type LoosePose, type SceneLayout, type Vec3 } from "./layout.ts"
 import { buildModel, deviceModel, type DeviceKind, iconModel, MODELLED, placedModel, systemUnit } from "./models.ts"
 
 export interface SceneEvents {
@@ -117,6 +118,43 @@ const TIP_EDGE_PX = 8
 const HOLD_GAP = 1.5
 
 /** Kinds that sit on a desk as a whole device: an opened box shows one of them. */
+/** A look at one part: this many times its size away, but never closer than MIN_PART_LOOK. */
+const PART_LOOK = 3.6
+const MIN_PART_LOOK = 18
+/** A look at a part's box on the grade 3–4 desk. */
+const BOX_LOOK = 40
+
+/** How much deeper than the farthest camera distance the camera still draws: the far side of the desk. */
+const FAR_MARGIN = 300
+
+type KeyMove = "left" | "right" | "up" | "down" | "in" | "out"
+/** Keys that move the camera: arrows and W A S D turn and tilt it, + and − zoom. Codes match any keyboard layout. */
+const KEY_MOVES: Readonly<Record<string, KeyMove>> = {
+  ArrowLeft: "left",
+  KeyA: "left",
+  ArrowRight: "right",
+  KeyD: "right",
+  ArrowUp: "up",
+  KeyW: "up",
+  ArrowDown: "down",
+  KeyS: "down",
+  Equal: "in",
+  NumpadAdd: "in",
+  "+": "in",
+  Minus: "out",
+  NumpadSubtract: "out",
+  "-": "out",
+  PageUp: "in",
+  PageDown: "out",
+}
+/** Radians a second the camera turns round and tilts while a key is held. */
+const TURN_SPEED = 1.6
+const TILT_SPEED = 1.0
+/** How fast the camera closes in or backs off: the distance grows or shrinks e-fold in 1 / ZOOM_SPEED seconds. */
+const ZOOM_SPEED = 1.2
+/** The camera never looks straight down: the view would spin round the vertical. */
+const MIN_POLAR = 0.08
+
 const DEVICE_KINDS: ReadonlySet<string> = new Set<DeviceKind>(["monitor", "keyboard", "mouse", "speakers", "printer", "flashDrive"])
 const BUTTON_FACE = new Vector3(-1, 0, 0)
 
@@ -146,6 +184,8 @@ export class PcScene implements SceneHandle {
   private readonly propScreens: MeshStandardMaterial[] = []
   private screens: MeshStandardMaterial[] = []
   private readonly boxes: DeskBox[] = []
+  /** Parts lying on the desk until they are taken: where each one lies and how big it is, for the camera. */
+  private readonly loose: Array<{ part: string; mesh: Group; centre: Vector3; radius: number }> = []
   private spinners: Object3D[] | null = null
   private readonly areas: SlotArea[] = []
   private readonly placedMeshes = new Map<string, { slot: string; mesh: Group }>()
@@ -164,6 +204,9 @@ export class PcScene implements SceneHandle {
   private readonly focusTarget = new Vector3()
   private focusFrom = new Vector3()
   private focusing = 0
+  /** Camera moves held down on the keyboard now. */
+  private readonly keys = new Set<KeyMove>()
+  private lastFrame = 0
   private readonly resize: ResizeObserver
   /** Name tags of the slots, over the canvas, and the note by the pointer. */
   private readonly tagLayer: HTMLDivElement
@@ -249,6 +292,7 @@ export class PcScene implements SceneHandle {
       this.bench.add(basket)
     }
     for (const b of layout.boxes ?? []) this.addBox(b.part, b.at)
+    for (const l of layout.loose ?? []) this.addLoose(l)
     this.bench.add(this.markers)
     this.packet = onTop(new Mesh(new SphereGeometry(0.9, 20, 14), new MeshBasicMaterial({ color: PACKET_COLOR })))
     this.packet.visible = false
@@ -269,6 +313,9 @@ export class PcScene implements SceneHandle {
     this.controls.maxPolarAngle = Math.PI * 0.46
     this.controls.minDistance = 10
     this.controls.maxDistance = Math.max(140, (layout.overview ?? 40) * 2.5)
+    // the far end of the desk must stay in view from the farthest the camera may go, or it is cut off
+    this.camera.far = this.controls.maxDistance + FAR_MARGIN
+    this.camera.updateProjectionMatrix()
     const far = (layout.overview ?? 40) / 40
     this.camera.position.set(0, 34 * far, 30 * far)
     this.controls.target.set(0, 0, 0)
@@ -278,6 +325,11 @@ export class PcScene implements SceneHandle {
     el.addEventListener("pointermove", this.onMove)
     el.addEventListener("pointerup", this.onUp)
     el.addEventListener("pointerleave", this.onLeave)
+    el.tabIndex = 0
+    el.setAttribute("aria-label", "Тривимірний стіл. Стрілки або W A S D повертають камеру, + і − наближають і віддаляють")
+    el.addEventListener("keydown", this.onKeyDown)
+    el.addEventListener("keyup", this.onKeyUp)
+    el.addEventListener("blur", this.onBlur)
     this.resize = new ResizeObserver(() => this.fit())
     this.resize.observe(host)
     this.fit()
@@ -365,6 +417,9 @@ export class PcScene implements SceneHandle {
     el.removeEventListener("pointermove", this.onMove)
     el.removeEventListener("pointerup", this.onUp)
     el.removeEventListener("pointerleave", this.onLeave)
+    el.removeEventListener("keydown", this.onKeyDown)
+    el.removeEventListener("keyup", this.onKeyUp)
+    el.removeEventListener("blur", this.onBlur)
     this.tagLayer.remove()
     this.controls.dispose()
     this.scene.traverse((obj) => {
@@ -461,6 +516,51 @@ export class PcScene implements SceneHandle {
     this.boxes.push({ part, closed, open })
   }
 
+  /** A part lying on the desk: its lowest point rests at the pose. */
+  private addLoose(pose: LoosePose): void {
+    const kind = this.scenario.parts.find((p) => p.id === pose.part)?.kind
+    if (!kind) return
+    const mesh = buildModel(kind, false)
+    if (pose.flat) mesh.rotation.z = Math.PI / 2
+    mesh.rotation.y = pose.yaw ?? 0
+    mesh.updateMatrixWorld(true)
+    const box = new Box3().setFromObject(mesh)
+    mesh.position.set(pose.at[0], pose.at[1] - box.min.y, pose.at[2])
+    mesh.userData.part = pose.part
+    this.bench.add(mesh)
+    const sphere = box.getBoundingSphere(new Sphere())
+    const centre = sphere.center.add(mesh.position)
+    this.loose.push({ part: pose.part, mesh, centre, radius: sphere.radius })
+  }
+
+  /**
+   * Flies the camera to a part the student reads about: where it lies on the desk, its box, the slot
+   * it stands in, or the bench itself. False when the part is nowhere in the scene.
+   */
+  showPart(part: string): boolean {
+    const lying = this.loose.find((l) => l.part === part && l.mesh.visible)
+    if (lying) {
+      this.focus([lying.centre.x, lying.centre.y, lying.centre.z], Math.max(MIN_PART_LOOK, lying.radius * PART_LOOK))
+      return true
+    }
+    const box = this.layout.boxes?.find((b) => b.part === part)
+    if (box) {
+      this.focus(box.at, BOX_LOOK)
+      return true
+    }
+    const slot = Object.entries(this.view.placed).find(([, p]) => p.part === part)?.[0]
+    const pose = slot ? this.layout.slots[slot] : undefined
+    if (pose) {
+      this.focus(pose.at, Math.max(MIN_PART_LOOK, Math.max(...pose.area) * PART_LOOK), pose.view ?? FRONT_VIEW)
+      return true
+    }
+    if (part === this.layout.benchPart) {
+      this.focus([0, 0, 0], this.layout.overview ?? 40)
+      return true
+    }
+    return false
+  }
+
   /** Markers of the data path: blue until tapped in turn, green once on the path, joined by arrows. */
   private syncPath(): void {
     const path = this.view.path
@@ -513,6 +613,7 @@ export class PcScene implements SceneHandle {
       box.closed.visible = !opened
       if (box.open) box.open.visible = opened && !placed.has(box.part) && this.view.held?.part !== box.part
     }
+    for (const l of this.loose) l.mesh.visible = !placed.has(l.part) && this.view.held?.part !== l.part
     for (const button of this.buttons) button.mesh.visible = button.when === undefined || this.view.placed[button.when] !== undefined
   }
 
@@ -601,6 +702,7 @@ export class PcScene implements SceneHandle {
       m.position.y = this.holdAt.y + Math.sin(time / 400) * 0.15
       m.rotation.y += (-held.turn * QUARTER - m.rotation.y) * 0.25
     }
+    this.steer(time)
     if (this.focusing > 0) {
       this.controls.target.lerp(this.focusTarget, 0.08)
       this.camera.position.lerp(this.focusFrom, 0.08)
@@ -825,6 +927,42 @@ export class PcScene implements SceneHandle {
 
   private readonly onDown = (e: PointerEvent): void => {
     this.down = { x: e.clientX, y: e.clientY }
+    // a click on the view hands it the keyboard, so the arrows turn the camera
+    this.renderer.domElement.focus({ preventScroll: true })
+  }
+
+  private readonly onKeyDown = (e: KeyboardEvent): void => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return
+    const move = KEY_MOVES[e.code] ?? KEY_MOVES[e.key]
+    if (!move) return
+    e.preventDefault()
+    this.keys.add(move)
+  }
+
+  private readonly onKeyUp = (e: KeyboardEvent): void => {
+    const move = KEY_MOVES[e.code] ?? KEY_MOVES[e.key]
+    if (move) this.keys.delete(move)
+  }
+
+  private readonly onBlur = (): void => {
+    this.keys.clear()
+  }
+
+  /** Turns, tilts and zooms the camera around the point it looks at while keys are held. */
+  private steer(time: number): void {
+    const dt = Math.min(0.1, Math.max(0, (time - this.lastFrame) / 1000))
+    this.lastFrame = time
+    if (this.keys.size === 0 || dt === 0) return
+    this.focusing = 0
+    const k = this.keys
+    const offset = this.camera.position.clone().sub(this.controls.target)
+    const s = new Spherical().setFromVector3(offset)
+    s.theta += ((k.has("left") ? 1 : 0) - (k.has("right") ? 1 : 0)) * TURN_SPEED * dt
+    s.phi += ((k.has("down") ? 1 : 0) - (k.has("up") ? 1 : 0)) * TILT_SPEED * dt
+    s.phi = Math.min(this.controls.maxPolarAngle, Math.max(MIN_POLAR, s.phi))
+    const zoom = (k.has("out") ? 1 : 0) - (k.has("in") ? 1 : 0)
+    s.radius = Math.min(this.controls.maxDistance, Math.max(this.controls.minDistance, s.radius * Math.exp(zoom * ZOOM_SPEED * dt)))
+    this.camera.position.copy(this.controls.target).add(new Vector3().setFromSpherical(s))
   }
 
   private readonly onMove = (e: PointerEvent): void => {
@@ -869,6 +1007,7 @@ export class PcScene implements SceneHandle {
       ...this.buttons.map((b) => b.mesh),
       ...[...this.placedMeshes.values()].map((p) => p.mesh),
       ...this.boxes.flatMap((b) => (b.open ? [b.closed, b.open] : [b.closed])),
+      ...this.loose.map((l) => l.mesh),
       this.benchModel
     ].filter((o) => o.visible)
     if (this.lever) targets.unshift(this.lever)

@@ -60,6 +60,19 @@ export interface BoxPose {
   readonly at: Vec3
 }
 
+/**
+ * A part lying loose on the desk until it is taken or placed, so the student sees what there is to build with.
+ * `at` is where its lowest point rests: 0 on the mat, DESK_TOP beside it.
+ */
+export interface LoosePose {
+  readonly part: string
+  readonly at: Vec3
+  /** Turn around the vertical axis, in radians. */
+  readonly yaw?: number
+  /** Laid on its side: a memory module lies flat instead of standing on its edge. */
+  readonly flat?: boolean
+}
+
 /** A device standing on the desk for the whole exercise: the monitor, the keyboard, the mouse. */
 export interface PropPose {
   readonly kind: "monitor" | "keyboard" | "mouse" | "smartphone" | "powerStrip"
@@ -114,11 +127,14 @@ export interface SceneLayout {
   readonly stops?: Readonly<Record<string, Vec3>>
   readonly crates?: ReadonlyArray<CratePose>
   readonly boxes?: ReadonlyArray<BoxPose>
+  readonly loose?: ReadonlyArray<LoosePose>
   /** Where the camera goes once the exercise is done, to show the result: the lit monitor. */
   readonly finale?: { readonly at: Vec3; readonly distance: number; readonly view: Vec3 }
 }
 
 export const BOARD_TOP = 0.16
+/** Height of the bare desk top beside the mat, in bench coordinates: the mat lies a little higher. */
+export const DESK_TOP = -0.05
 const SOCKET: readonly [number, number] = [-2, -4]
 const DIMM_X = [5.2, 6.1, 7.0, 7.9] as const
 const DIMM_Z = -3.5
@@ -184,7 +200,18 @@ export const grade8DeskLayout: SceneLayout = {
     dimmB2: dimm(DIMM_X[3]),
     m2Slot: { at: [-3.4, BOARD_TOP + 0.35, 4.6], area: [9, 1, 2.8] }
   },
-  lever: { control: "socketLever", pivot: [SOCKET[0] + 2.35, BOARD_TOP + 0.3, SOCKET[1] + 2.1], length: 4.2, upValue: "up" }
+  lever: { control: "socketLever", pivot: [SOCKET[0] + 2.35, BOARD_TOP + 0.3, SOCKET[1] + 2.1], length: 4.2, upValue: "up" },
+  overview: 64,
+  // the new parts lie on the mat round the board, the way they come out of their boxes
+  loose: [
+    { part: "cooler", at: [-21, 0, -6] },
+    { part: "cpu", at: [-21, 0, 6] },
+    { part: "paste", at: [-21, 0, 14], yaw: 0.3 },
+    { part: "ram1", at: [19.5, 0, -1], flat: true },
+    { part: "ram2", at: [23.5, 0, -1], flat: true },
+    { part: "ssd", at: [-3, 0, 16] },
+    { part: "coolerCable", at: [8, 0, 16], yaw: 0.5 }
+  ]
 }
 
 // ---------- the case ----------
@@ -269,6 +296,13 @@ export const grade8CaseLayout: SceneLayout = {
     { kind: "monitor", at: [0, 0, -46] },
     { kind: "keyboard", at: [0, 0, -31] },
     { kind: "mouse", at: [29, 0, -31] }
+  ],
+  // the parts still to go into the case lie in a row on the desk in front of it, low enough not to hide it
+  loose: [
+    { part: "board", at: [-38, DESK_TOP, 36] },
+    { part: "psu", at: [-8, DESK_TOP, 38], flat: true },
+    { part: "gpu", at: [17, DESK_TOP, 40], flat: true, yaw: Math.PI / 2 },
+    { part: "hdd", at: [43, DESK_TOP, 38] }
   ]
 }
 
@@ -279,6 +313,7 @@ const above = (v: Vec3, dy: number, dz = 0): Vec3 => [v[0], v[1] + dy, v[2] + dz
 /** The case scenario's computer, built and switched on, with markers for the data path and a smartphone on the desk. */
 export const grade8LabLayout: SceneLayout = {
   ...grade8CaseLayout,
+  loose: [],
   props: [...(grade8CaseLayout.props ?? []), { kind: "smartphone", at: [24, 0, 34], yaw: 0.4 }],
   finale: { at: [0, 18, -30], distance: 105, view: [0.25, 0.55, 1] },
   stops: {
@@ -388,6 +423,8 @@ const STRIP_AT: Vec3 = [44, 0, 8]
 /** The grade 8 case, built: the picture needs the monitor on the graphics card and power to the processor; the files need the disk's cable. */
 export const grade8FaultLayout: SceneLayout = {
   ...grade8CaseLayout,
+  // a fault exercise starts built: a part lying beside it would give the answer away
+  loose: [],
   power: {
     control: "power",
     on: "on",
