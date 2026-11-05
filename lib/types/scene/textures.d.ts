@@ -1,7 +1,7 @@
 import { CanvasTexture } from "three";
 import type { BoardFace } from "./layout.ts";
-export declare const BOARD_W = 30.5;
-export declare const BOARD_D = 24.4;
+export declare const BOARD_W = 24.4;
+export declare const BOARD_D = 30.5;
 /** The board's top: solder mask, traces, vias, silkscreen labels and outlines, the socket's triangle. */
 export declare const boardTexture: (layout: BoardFace) => CanvasTexture;
 /** The socket's top: a dense grid of contact holes and a printed triangle in the front-left corner. */

@@ -128,17 +128,20 @@ const BOX_LOOK = 40
 /** How much deeper than the farthest camera distance the camera still draws: the far side of the desk. */
 const FAR_MARGIN = 300
 
-type KeyMove = "left" | "right" | "up" | "down" | "in" | "out"
-/** Keys that move the camera: arrows and W A S D turn and tilt it, + and − zoom. Codes match any keyboard layout. */
+type KeyMove = "left" | "right" | "up" | "down" | "in" | "out" | "forward" | "back" | "strafeLeft" | "strafeRight"
+/**
+ * Keys that move the camera: W A S D fly it over the desk, the arrows turn and tilt it, + and − zoom.
+ * Codes match any keyboard layout.
+ */
 const KEY_MOVES: Readonly<Record<string, KeyMove>> = {
+  KeyW: "forward",
+  KeyS: "back",
+  KeyA: "strafeLeft",
+  KeyD: "strafeRight",
   ArrowLeft: "left",
-  KeyA: "left",
   ArrowRight: "right",
-  KeyD: "right",
   ArrowUp: "up",
-  KeyW: "up",
   ArrowDown: "down",
-  KeyS: "down",
   Equal: "in",
   NumpadAdd: "in",
   "+": "in",
@@ -148,6 +151,10 @@ const KEY_MOVES: Readonly<Record<string, KeyMove>> = {
   PageUp: "in",
   PageDown: "out",
 }
+/** How fast the camera flies over the desk: this share of its distance from the point it looks at, a second. */
+const FLY_SPEED = 0.9
+/** The point the camera looks at stays over the desk: it may not fly off into the dark. */
+const DESK_HALF: readonly [number, number] = [80, 55]
 /** Radians a second the camera turns round and tilts while a key is held. */
 const TURN_SPEED = 1.6
 const TILT_SPEED = 1.0
@@ -327,7 +334,7 @@ export class PcScene implements SceneHandle {
     el.addEventListener("pointerup", this.onUp)
     el.addEventListener("pointerleave", this.onLeave)
     el.tabIndex = 0
-    el.setAttribute("aria-label", "Тривимірний стіл. Стрілки або W A S D повертають камеру, + і − наближають і віддаляють")
+    el.setAttribute("aria-label", "Тривимірний стіл. W A S D переміщують камеру, стрілки повертають її, + і − наближають і віддаляють")
     el.addEventListener("keydown", this.onKeyDown)
     el.addEventListener("keyup", this.onKeyUp)
     el.addEventListener("blur", this.onBlur)
@@ -949,7 +956,7 @@ export class PcScene implements SceneHandle {
     this.keys.clear()
   }
 
-  /** Turns, tilts and zooms the camera around the point it looks at while keys are held. */
+  /** While keys are held: flies the camera over the desk, turns and tilts it round the point it looks at, zooms. */
   private steer(time: number): void {
     const dt = Math.min(0.1, Math.max(0, (time - this.lastFrame) / 1000))
     this.lastFrame = time
@@ -963,6 +970,17 @@ export class PcScene implements SceneHandle {
     s.phi = Math.min(this.controls.maxPolarAngle, Math.max(MIN_POLAR, s.phi))
     const zoom = (k.has("out") ? 1 : 0) - (k.has("in") ? 1 : 0)
     s.radius = Math.min(this.controls.maxDistance, Math.max(this.controls.minDistance, s.radius * Math.exp(zoom * ZOOM_SPEED * dt)))
+    // W A S D fly the camera and the point it looks at together, level over the desk, the way the camera faces
+    const ahead = (k.has("forward") ? 1 : 0) - (k.has("back") ? 1 : 0)
+    const aside = (k.has("strafeRight") ? 1 : 0) - (k.has("strafeLeft") ? 1 : 0)
+    if (ahead !== 0 || aside !== 0) {
+      const forward = new Vector3(-offset.x, 0, -offset.z).normalize()
+      const right = new Vector3(-forward.z, 0, forward.x)
+      const step = forward.multiplyScalar(ahead).add(right.multiplyScalar(aside)).normalize().multiplyScalar(s.radius * FLY_SPEED * dt)
+      const target = this.controls.target
+      target.x = Math.min(DESK_HALF[0], Math.max(-DESK_HALF[0], target.x + step.x))
+      target.z = Math.min(DESK_HALF[1], Math.max(-DESK_HALF[1], target.z + step.z))
+    }
     this.camera.position.copy(this.controls.target).add(new Vector3().setFromSpherical(s))
   }
 

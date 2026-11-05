@@ -253,7 +253,7 @@ export const EduPc = ({
           <div className="edu-pc-view" ref={hostRef} />
           {sceneError && <p className="edu-pc-error">{sceneError}</p>}
           <p className="edu-pc-keys" aria-hidden="true">
-            Камера: перетягни мишею або стрілки, W A S D; наблизити + і −
+            Камера: W A S D — літати, стрілки — повертати, + і − — наближати
           </p>
           {/* one message at a time: a part's card stands in for the step card until it is closed */}
           {infoPart ? (

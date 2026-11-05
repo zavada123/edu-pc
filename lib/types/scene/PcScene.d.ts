@@ -3,6 +3,7 @@ import type { Placed } from "../core/machine.ts";
 import type { PartKind, Turn } from "../core/parts.ts";
 import type { Scenario } from "../core/scenario.ts";
 import { type SceneLayout, type Vec3 } from "./layout.ts";
+export { preloadModels } from "./gltf.ts";
 export interface SceneEvents {
     /** The student clicked a slot while holding a part. */
     readonly onSlot: (slotId: string) => void;
@@ -183,7 +184,7 @@ export declare class PcScene implements SceneHandle {
     private readonly onKeyDown;
     private readonly onKeyUp;
     private readonly onBlur;
-    /** Turns, tilts and zooms the camera around the point it looks at while keys are held. */
+    /** While keys are held: flies the camera over the desk, turns and tilts it round the point it looks at, zooms. */
     private steer;
     private readonly onMove;
     private readonly onLeave;
