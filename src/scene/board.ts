@@ -1,8 +1,10 @@
 import { type Group, type Material } from "three"
 import type { Slot } from "../core/scenario.ts"
+import { realModel } from "./gltf.ts"
 import { M, box, boxes, cylinder, group, mat, mergeStatic, rounded, seeded, shadowed } from "./kit.ts"
 import {
   BOARD_CONNECTORS,
+  BOARD_HOLES,
   BOARD_TOP,
   type BoardFace,
   DIMM_KEY,
@@ -59,7 +61,7 @@ const fanHeader = (x: number, z: number): Group => {
 const m2Connector = (x: number, z: number, standoffX: number): Group =>
   group(
     rounded([0.8, 0.45, 2.4], 0.06, M.blackPlastic, x, BOARD_TOP, z),
-    box([0.1, 0.03, 2.1], M.gold, x + 0.25, BOARD_TOP + 0.45, z),
+    box([0.1, 0.03, 2.1], M.gold, x - 0.25, BOARD_TOP + 0.45, z),
     cylinder(0.3, 0.32, M.gold, standoffX, BOARD_TOP, z, 16),
     cylinder(0.12, 0.34, M.chip, standoffX, BOARD_TOP, z, 12)
   )
@@ -97,12 +99,12 @@ const pcieSlot = (x: number, z: number, length: number, armoured: boolean): Grou
 }
 
 const rearPanel = (): Group => {
-  const x = -13.8
-  const z = -5.5
+  const x = REAR_FACE_X + 1.65
+  const z = -4.5
   const g = group(
     rounded([2.4, 3.6, 12], 0.25, M.satinBlack, x, BOARD_TOP, z),
     box([2.45, 0.25, 9], M.accent, x, BOARD_TOP + 3.2, z),
-    box([0.2, 3.4, 11.6], M.aluminium, -15.05, BOARD_TOP, z)
+    box([0.2, 3.4, 11.6], M.aluminium, REAR_FACE_X + 0.4, BOARD_TOP, z)
   )
   // ports on the outside: USB (blue), HDMI, network, audio; each stands with its long side up
   const portX = REAR_FACE_X + 0.25
@@ -110,36 +112,37 @@ const rearPanel = (): Group => {
     const [pz, py] = REAR_PORTS[key]
     g.add(box(shell, M.aluminium, portX, BOARD_TOP + py - shell[1] / 2, pz), box(inner, core, portX, BOARD_TOP + py - inner[1] / 2, pz))
   }
-  for (const key of ["usb1", "usb2", "usb3", "usb4"] as const) port(key, [0.5, 1.3, 0.6], [0.52, 1.0, 0.18], M.blueUsb)
+  for (const key of ["usb1", "usb2", "usb3", "usb4"] as const) port(key, [0.5, 0.7, 1.3], [0.52, 0.2, 1.0], M.blueUsb)
   port("hdmi", [0.5, 1.5, 0.5], [0.52, 1.2, 0.28], M.chip)
   port("lan", [0.5, 1.2, 1.4], [0.52, 0.9, 1.0], M.chip)
   const audio: Array<[number, Material]> = [
-    [-2.6, M.yellow],
-    [-1.8, mat("#7bbf3a")],
-    [-1.0, mat("#e87ab0")]
+    [0.4, M.yellow],
+    [1.2, mat("#7bbf3a")],
+    [2.0, mat("#e87ab0")]
   ]
   for (const [az, material] of audio) g.add(box([0.5, 0.5, 0.5], material, portX, BOARD_TOP + 0.4, az))
   return g
 }
 
+/** Board areas taken by the parts above, x0, z0, x1, z1: the tiny parts keep off them. */
 const OCCUPIED: ReadonlyArray<Rect> = [
-  [-6.1, -8, 2.1, 0], // socket and frame
-  [-9.7, -8, -7.3, 1], // left VRM
-  [-8, -10, 1, -7.9], // top VRM
-  [-15.3, -11.6, -12.4, 0.6], // rear panel
-  [4.6, -11, 8.5, 4], // DIMM slots
-  [-11.3, 8.1, -1.4, 9.5], // PCIe x16
-  [-11.2, 10.3, -5.8, 11.7], // PCIe x1
+  [-3.4, -10.7, 4.8, -2.7], // socket and frame
+  [-7, -10.7, -4.6, -1.7], // left VRM
+  [-5.4, -12.7, 3.9, -10.6], // top VRM
+  [-12.3, -11, -9.4, 2], // rear panel
+  [5.6, -14, 9.6, 0.4], // DIMM slots
+  [-8.3, 2.2, 2.3, 3.6], // PCIe x16
+  [-9.6, 4.3, -3.6, 5.7], // PCIe x1
   [1.8, 4.3, 6.2, 8.7], // chipset
-  [-8.2, 3.2, 1.2, 6], // M.2 and SSD
-  [13.4, -6, 15.2, 0], // 24-pin
-  [13.1, 6.2, 14.7, 8.2], // SATA
-  [-12, -11.6, -9.8, -9.9], // 8-pin
-  [-13.4, 2.4, -11, 4], // SYS_FAN
-  [-3, -11.2, -1, -10], // CPU_FAN
-  [8.8, 3, 11.2, 5.2], // CMOS battery
-  [-6.9, -7.5, -6.1, 0.2], // chokes
-  [2.2, -7, 3.4, -1] // capacitors
+  [-5.4, -0.5, 3.6, 2.3], // M.2
+  [10.7, -7.9, 12.3, -2.3], // 24-pin
+  [10.6, 6.6, 12.2, 8.4], // SATA
+  [-7.6, -15.4, -5.4, -14.2], // 8-pin
+  [-7, -2.4, -5.4, -1], // SYS_FAN
+  [4.2, -14, 6.2, -12.8], // CPU_FAN
+  [8.8, 9, 11.2, 11.2], // CMOS battery
+  [-4.3, -6.3, -3.5, 1.2], // chokes
+  [5, -6, 6.2, -0.8] // capacitors
 ]
 
 const free = (x: number, z: number): boolean =>
@@ -194,16 +197,16 @@ const decorations = (socket: readonly [number, number]): Group => {
     finnedHeatsink([2.2, 2.3, 8.5], false, sx - 6.5, sz + 0.5),
     finnedHeatsink([8.5, 2.3, 1.8], true, sx - 1.5, sz - 5),
     rearPanel(),
-    pcieSlot(-6.5, 8.8, 9, true),
-    pcieSlot(-8.5, 11, 5, false),
+    pcieSlot(BOARD_CONNECTORS.pcieX16[0], BOARD_CONNECTORS.pcieX16[1], 9, true),
+    pcieSlot(BOARD_CONNECTORS.pcieX1[0], BOARD_CONNECTORS.pcieX1[1], 5, false),
     rounded([4, 0.9, 4], 0.15, M.gunmetal, 4, BOARD_TOP, 6.5),
     box([3.2, 0.02, 3.2], mat("#ffffff", { map: groovesTexture(), metal: 0.6, rough: 0.4 }), 4, BOARD_TOP + 0.9, 6.5),
     box([1, 0.03, 1], M.accent, 5, BOARD_TOP + 0.92, 7.5),
     box([1.2, 1.6, 5.4], top(mat("#ffffff", { map: pinGridTexture(2, 12) }), M.whitePlastic), ...at(BOARD_CONNECTORS.atx24)),
     box([1.9, 1.2, 1], top(mat("#ffffff", { map: pinGridTexture(4, 2) }), M.blackPlastic), ...at(BOARD_CONNECTORS.eps8)),
     sataPorts(),
-    cylinder(1.05, 0.25, M.blackPlastic, 10, BOARD_TOP, 4.1, 32),
-    cylinder(0.95, 0.3, M.capTop, 10, BOARD_TOP + 0.1, 4.1, 32),
+    cylinder(1.05, 0.25, M.blackPlastic, 10, BOARD_TOP, 10.1, 32),
+    cylinder(0.95, 0.3, M.capTop, 10, BOARD_TOP + 0.1, 10.1, 32),
     smdParts()
   )
   // chokes: grey cubes beside the left heatsink
@@ -214,7 +217,7 @@ const decorations = (socket: readonly [number, number]): Group => {
     g.add(cylinder(0.31, 0.04, M.capTop, sx + 4.8, BOARD_TOP + 0.85, sz - 2.4 + i * 1.5, 20))
   }
   // mounting holes with gold rings
-  for (const [hx, hz] of [[-13.8, -10.8], [13.8, -10.8], [-13.8, 10.8], [13.8, 10.8], [3.5, -10.8], [3.5, 10.8], [13.8, 0]] as const) {
+  for (const [hx, hz] of BOARD_HOLES) {
     g.add(cylinder(0.48, 0.02, M.gold, hx, BOARD_TOP, hz, 20))
     g.add(cylinder(0.2, 0.025, M.chip, hx, BOARD_TOP, hz, 16))
   }
@@ -223,8 +226,13 @@ const decorations = (socket: readonly [number, number]): Group => {
 
 type Poses = Readonly<Record<string, { readonly at: readonly [number, number, number] }>>
 
-/** The motherboard with its sockets and slots, built from the scenario's slots and where they are on the board. */
+/**
+ * The motherboard with its sockets and slots: the real board's model once it is loaded, otherwise one
+ * built from the scenario's slots and where they are on the board.
+ */
 export const buildBoard = (face: BoardFace, slots: ReadonlyArray<Slot>, poses: Poses): Group => {
+  const real = realModel("motherboard")
+  if (real) return real
   const edge = mat("#1c2024")
   const pcb = box([BOARD_W, BOARD_TOP, BOARD_D], top(mat("#ffffff", { map: boardTexture(face), rough: 0.5 }), edge))
   const g = group(pcb, decorations(face.socket))
@@ -235,7 +243,8 @@ export const buildBoard = (face: BoardFace, slots: ReadonlyArray<Slot>, poses: P
     if (slot.accepts.includes("cpu")) g.add(socketModel(x, z))
     else if (slot.accepts.includes("ram")) g.add(dimmSlot(x, z))
     else if (slot.accepts.includes("fanCable")) g.add(fanHeader(x, z))
-    else if (slot.accepts.includes("m2ssd")) g.add(m2Connector(x - 4.2, z, x + 4.0))
+    // the connector at the right end, as on the real board; the screw at the left
+    else if (slot.accepts.includes("m2ssd")) g.add(m2Connector(x + 4.2, z, x - 4.0))
   }
   return shadowed(mergeStatic(g))
 }

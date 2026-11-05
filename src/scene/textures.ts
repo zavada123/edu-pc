@@ -2,8 +2,8 @@ import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from "three"
 import { seeded } from "./kit.ts"
 import type { BoardFace } from "./layout.ts"
 
-export const BOARD_W = 30.5
-export const BOARD_D = 24.4
+export const BOARD_W = 24.4
+export const BOARD_D = 30.5
 const PX = 48 // canvas pixels per centimetre on the board
 
 const canvasTexture = (w: number, h: number, draw: (g: CanvasRenderingContext2D) => void): CanvasTexture => {

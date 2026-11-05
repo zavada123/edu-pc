@@ -135,72 +135,91 @@ export interface SceneLayout {
 export const BOARD_TOP = 0.16
 /** Height of the bare desk top beside the mat, in bench coordinates: the mat lies a little higher. */
 export const DESK_TOP = -0.05
-const SOCKET: readonly [number, number] = [-2, -4]
-const DIMM_X = [5.2, 6.1, 7.0, 7.9] as const
-const DIMM_Z = -3.5
+/*
+ * Our board is a real one, the ASUS ROG Strix Z370-E (ATX, 24.4 × 30.5 cm), lying with its rear panel to the
+ * left (-x). Everything below is measured on its model (`public/models/motherboard.glb`), so a part placed
+ * here sits where it sits on the real board.
+ */
+const SOCKET: readonly [number, number] = [0.66, -6.71]
+const DIMM_X = [6.2, 7.15, 8.1, 9.05] as const
+const DIMM_Z = -6.7
+/** Middle of the M.2 slot, from the connector to the screw. */
+const M2: readonly [number, number] = [-0.91, 0.89]
 
 export const DIMM_LENGTH = 13.3
 /** Where the key in a RAM slot sits, along the slot from its centre. A module fits only with its notch here. */
 export const DIMM_KEY = 1.3
 
-/** Our board (roughly ATX) in its own coordinates: where its connectors are, x and z. */
+/** Our board in its own coordinates: where its connectors are, x and z. */
 export const BOARD_CONNECTORS = {
-  atx24: [14.2, -3],
-  eps8: [-10.9, -10.75],
-  sata: [13.9, 7.2],
-  pcieX16: [-6.5, 8.8],
-  pcieX1: [-8.5, 11]
+  atx24: [11.5, -5.1],
+  eps8: [-6.5, -14.8],
+  sata: [11.4, 7.5],
+  pcieX16: [-3.3, 2.9],
+  pcieX1: [-6.6, 5.0]
 } as const satisfies Record<string, readonly [number, number]>
+
+/** The board's mounting holes, x and z: the case has a brass standoff under each. */
+export const BOARD_HOLES: ReadonlyArray<readonly [number, number]> = [
+  [-10.8, -13.8],
+  [10.8, -13.8],
+  [-10.8, 13.8],
+  [10.8, 13.8],
+  [-10.8, 3.5],
+  [10.8, 3.5],
+  [0, -13.8]
+]
 
 /**
  * The outer face of the rear panel on the board, along x, and the middle of each port: z along the panel
  * and y above the board. As on a real board, a port's long side points away from the board (along y).
  */
-export const REAR_FACE_X = -15.45
+export const REAR_FACE_X = -12.75
 export const REAR_PORTS = {
-  usb1: [-10.8, 0.95],
-  usb2: [-10.8, 2.55],
-  hdmi: [-8.4, 0.95],
-  lan: [-8.4, 2.6],
-  usb3: [-6, 0.95],
-  usb4: [-6, 2.55]
+  usb1: [-5.6, 0.6],
+  usb2: [-5.6, 1.35],
+  hdmi: [-7.5, 0.5],
+  lan: [-1.3, 2.6],
+  usb3: [-3.6, 0.6],
+  usb4: [-3.6, 1.35]
 } as const satisfies Record<string, readonly [number, number]>
 
 export const GRADE8_BOARD: BoardFace = {
   socket: SOCKET,
   labels: [
-    { text: "CPU_FAN", at: [-2, -11.6] },
-    { text: "SYS_FAN", at: [-12.2, 4.3] },
-    { text: "A1", at: [DIMM_X[0], -10.9], size: 0.55 },
-    { text: "A2", at: [DIMM_X[1], -10.9], size: 0.55 },
-    { text: "B1", at: [DIMM_X[2], -10.9], size: 0.55 },
-    { text: "B2", at: [DIMM_X[3], -10.9], size: 0.55 },
-    { text: "M.2", at: [-8.6, 6.4] },
-    { text: "CPU", at: [-3.6, 0.7] },
-    { text: "SATA", at: [12.4, 7.2], size: 0.5 },
-    { text: "EDU BOARD 8", at: [10.5, 9.5], size: 0.9 }
+    { text: "CPU_FAN", at: [5.2, -12] },
+    { text: "SYS_FAN", at: [-6.2, -0.5] },
+    { text: "A1", at: [DIMM_X[0], -14.1], size: 0.55 },
+    { text: "A2", at: [DIMM_X[1], -14.1], size: 0.55 },
+    { text: "B1", at: [DIMM_X[2], -14.1], size: 0.55 },
+    { text: "B2", at: [DIMM_X[3], -14.1], size: 0.55 },
+    { text: "M.2", at: [-0.9, 2.4] },
+    { text: "CPU", at: [0.66, -3.4] },
+    { text: "SATA", at: [9.8, 9.2], size: 0.5 },
+    { text: "Z370-E", at: [5, 13], size: 0.9 }
   ]
 }
 
-const dimm = (x: number): SlotPose => ({ at: [x, BOARD_TOP + 0.55, DIMM_Z], area: [0.8, 1.4, DIMM_LENGTH + 0.3] })
+const dimm = (x: number): SlotPose => ({ at: [x, BOARD_TOP + 0.43, DIMM_Z], area: [0.8, 1.4, DIMM_LENGTH + 0.3] })
 
-/** Layout of the grade 8 desk scenario (a board of our own design, roughly ATX-sized). */
+/** Layout of the grade 8 desk scenario: the bare board on the mat. */
 export const grade8DeskLayout: SceneLayout = {
   bench: "board",
   benchPart: "board",
   slots: {
-    cpuSocket: { at: [SOCKET[0], BOARD_TOP + 0.42, SOCKET[1]], area: [4.6, 1.2, 4.6] },
-    cpuTop: { at: [SOCKET[0], BOARD_TOP + 0.84, SOCKET[1]], area: [4.2, 1.2, 4.2] },
-    coolerMount: { at: [SOCKET[0], BOARD_TOP + 0.86, SOCKET[1]], area: [8.4, 2, 8.4] },
-    cpuFan: { at: [-2, BOARD_TOP, -10.6], area: [2.2, 1.4, 1.6] },
-    sysFan: { at: [-12.2, BOARD_TOP, 3.2], area: [2.2, 1.4, 1.6] },
+    cpuSocket: { at: [SOCKET[0], BOARD_TOP + 0.17, SOCKET[1]], area: [4.6, 1.2, 4.6] },
+    cpuTop: { at: [SOCKET[0], BOARD_TOP + 0.6, SOCKET[1]], area: [4.2, 1.2, 4.2] },
+    coolerMount: { at: [SOCKET[0], BOARD_TOP + 0.62, SOCKET[1]], area: [8.4, 2, 8.4] },
+    cpuFan: { at: [5.2, BOARD_TOP, -13.4], area: [2.2, 1.4, 1.6] },
+    sysFan: { at: [-6.2, BOARD_TOP, -1.7], area: [2.2, 1.4, 1.6] },
     dimmA1: dimm(DIMM_X[0]),
     dimmA2: dimm(DIMM_X[1]),
     dimmB1: dimm(DIMM_X[2]),
     dimmB2: dimm(DIMM_X[3]),
-    m2Slot: { at: [-3.4, BOARD_TOP + 0.35, 4.6], area: [9, 1, 2.8] }
+    // the M.2 connector is at the slot's right end (+x): the stick is turned half round
+    m2Slot: { at: [M2[0], BOARD_TOP + 0.5, M2[1]], area: [9, 1, 2.8], yaw: Math.PI }
   },
-  lever: { control: "socketLever", pivot: [SOCKET[0] + 2.35, BOARD_TOP + 0.3, SOCKET[1] + 2.1], length: 4.2, upValue: "up" },
+  lever: { control: "socketLever", pivot: [SOCKET[0] + 3.25, BOARD_TOP + 0.3, SOCKET[1] + 3.5], length: 6.2, upValue: "up" },
   overview: 64,
   // the new parts lie on the mat round the board, the way they come out of their boxes
   loose: [
@@ -209,8 +228,8 @@ export const grade8DeskLayout: SceneLayout = {
     { part: "paste", at: [-21, 0, 14], yaw: 0.3 },
     { part: "ram1", at: [19.5, 0, -1], flat: true },
     { part: "ram2", at: [23.5, 0, -1], flat: true },
-    { part: "ssd", at: [-3, 0, 16] },
-    { part: "coolerCable", at: [8, 0, 16], yaw: 0.5 }
+    { part: "ssd", at: [-3, 0, 18.5] },
+    { part: "coolerCable", at: [8, 0, 18.5], yaw: 0.5 }
   ]
 }
 
@@ -225,7 +244,7 @@ export const CASE_SIZE: Vec3 = [43, 21, 45]
 export const CASE_FLOOR = 1
 const STANDOFF = 0.6
 /** Where our board's centre lands in the case, and its quarter turn there (3: the rear panel faces the back). */
-export const BOARD_IN_CASE: Vec3 = [-7.3, CASE_FLOOR + STANDOFF, 6.2]
+export const BOARD_IN_CASE: Vec3 = [-4.25, CASE_FLOOR + STANDOFF, 8.9]
 export const BOARD_TURN_IN_CASE = 3
 
 /** A point on our board (board coordinates) in case coordinates, once the board is in the case. */
@@ -263,7 +282,7 @@ export const grade8CaseLayout: SceneLayout = {
   power: { control: "power", on: "on" },
   slots: {
     psuBay: { at: PSU_AT, area: [8.8, 15, 14.2] },
-    boardTray: { at: BOARD_IN_CASE, area: [24.6, 3, 30.7] },
+    boardTray: { at: BOARD_IN_CASE, area: [30.7, 3, 24.6] },
     pcieX16: { at: GPU_AT, area: [1.6, 3, 9.4], view: [0.55, 0.8, 0.45] },
     pcieX1: { at: pcie(BOARD_CONNECTORS.pcieX1), area: [1.4, 2.4, 5.4], view: [0.55, 0.8, 0.45] },
     hddBay: { at: HDD_AT, area: [10.6, 3.4, 15] },
@@ -322,7 +341,7 @@ export const grade8LabLayout: SceneLayout = {
     cpu: onBoard(SOCKET[0], BOARD_TOP + 10, SOCKET[1]),
     gpu: add(GPU_AT, [1.9, 17, 0]),
     monitor: [0, 27, -44],
-    ssd: onBoard(-3.4, BOARD_TOP + 1.5, 4.6),
+    ssd: onBoard(M2[0], BOARD_TOP + 1.5, M2[1]),
     hdd: add(HDD_AT, [0, 5, 0])
   }
 }

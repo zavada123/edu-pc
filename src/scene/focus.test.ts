@@ -23,8 +23,10 @@ describe("focusPoint", () => {
 
   test("stands back far enough to see two RAM slots end to end", () => {
     const [at, distance] = focusPoint(grade8DeskLayout, ["dimmA2", "dimmB2"], undefined)
-    expect(at[0]).toBeCloseTo((6.1 + 7.9) / 2)
-    expect(at[2]).toBeCloseTo(-3.5)
+    const a2 = grade8DeskLayout.slots.dimmA2?.at ?? [0, 0, 0]
+    const b2 = grade8DeskLayout.slots.dimmB2?.at ?? [0, 0, 0]
+    expect(at[0]).toBeCloseTo((a2[0] + b2[0]) / 2)
+    expect(at[2]).toBeCloseTo(a2[2])
     expect(distance).toBeGreaterThan(30)
   })
 

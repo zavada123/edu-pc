@@ -13,6 +13,8 @@ const rootEl = document.getElementById("root")
 if (!rootEl) throw new Error("Немає #root")
 const params = new URLSearchParams(location.search)
 const light = params.has("light")
+// realistic models of real parts from public/models; ?simple shows only the models built in code
+const modelsUrl = params.has("simple") ? undefined : "./models/"
 // ?s=<scenario id> picks the exercise, for example ?s=grade8-club-case
 const scenario = scenarios[params.get("s") ?? ""] ?? grade8Club
 // ?debug puts the scene on window for automated browser tests
@@ -45,6 +47,7 @@ const CardsPage = () => {
           key={open.id}
           scenario={open}
           lightGraphics={light}
+          modelsUrl={modelsUrl}
           onSceneReady={onSceneReady}
           onComplete={() => setSolved((s) => (s.includes(open.id) ? s : [...s, open.id]))}
           onNext={next === undefined ? undefined : () => setCurrent(next.id)}
@@ -59,7 +62,7 @@ createRoot(rootEl).render(
     {params.has("cards") ? (
       <CardsPage />
     ) : (
-      <EduPc scenario={scenario} lightGraphics={light} onSceneReady={onSceneReady} initialState={startAt(scenario)} />
+      <EduPc scenario={scenario} lightGraphics={light} modelsUrl={modelsUrl} onSceneReady={onSceneReady} initialState={startAt(scenario)} />
     )}
   </StrictMode>
 )

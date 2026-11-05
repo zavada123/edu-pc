@@ -1,6 +1,6 @@
 import type { Group } from "three"
 import { M, box, cylinder, fanRotor, group, mat, mergeStatic, rounded, shadowed } from "./kit.ts"
-import { BOARD_IN_CASE, CASE_FLOOR, CASE_SIZE, onBoard } from "./layout.ts"
+import { BOARD_HOLES, BOARD_IN_CASE, CASE_FLOOR, CASE_SIZE, onBoard } from "./layout.ts"
 import { fanGrilleTexture, honeycombTexture } from "./textures.ts"
 
 /**
@@ -48,8 +48,8 @@ const caseFan = (): Group => {
 }
 
 /** The holes in the back wall, x and y in case coordinates. */
-const IO_HOLE: Rect = [-19.2, 1.6, -6.4, 5.8]
-const SLOTS_HOLE: Rect = [0.8, 1.8, 6.2, 15]
+const IO_HOLE: Rect = [-15.6, 1.6, -2, 5.8]
+const SLOTS_HOLE: Rect = [-3.4, 1.8, 9.6, 15]
 const PSU_HOLE: Rect = [11.9, CASE_FLOOR, W / 2 - WALL, 16.2]
 
 export const buildCase = (): Group => {
@@ -68,7 +68,8 @@ export const buildCase = (): Group => {
     wallWithHoles([x0 + WALL, CASE_FLOOR, -x0 - WALL, H], [IO_HOLE, SLOTS_HOLE, PSU_HOLE], -z0 - WALL / 2, WALL),
     box([12, 12, 0.1], mat("#ffffff", { map: fanGrilleTexture(), rough: 0.6 }), -13.5, 7.5, -z0 + 0.06)
   )
-  for (let i = 0; i < 3; i++) g.add(box([0.9, 13, 0.2], M.aluminium, 6.9 + i * 1.05, 1.9, -z0 - 0.1))
+  // covers on the slots the graphics card leaves free
+  for (let i = 0; i < 5; i++) g.add(box([0.9, 13, 0.2], M.aluminium, 4.4 + i * 1.05, 1.9, -z0 - 0.1))
   // the edges of the open side, a little lighter, so the case reads as a box
   g.add(
     box([W, 0.15, 0.6], M.gunmetal, 0, H, z0 + 0.3),
@@ -77,7 +78,7 @@ export const buildCase = (): Group => {
     box([0.6, 0.15, D], M.gunmetal, -x0 - 0.3, H, 0)
   )
   // brass standoffs under the board's mounting holes
-  for (const [hx, hz] of [[-13.8, -10.8], [13.8, -10.8], [-13.8, 10.8], [13.8, 10.8], [3.5, -10.8], [3.5, 10.8], [13.8, 0]] as const) {
+  for (const [hx, hz] of BOARD_HOLES) {
     const [sx, , sz] = onBoard(hx, 0, hz)
     g.add(cylinder(0.32, BOARD_IN_CASE[1] - CASE_FLOOR, M.gold, sx, CASE_FLOOR, sz, 12))
   }
