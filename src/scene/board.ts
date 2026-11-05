@@ -262,8 +262,11 @@ export const buildLever = (length: number): Group => {
 }
 
 /** The desk and the antistatic mat under the board. */
-export const buildDesk = (): Group => {
-  const desk = group(box([160, 2, 110], mat("#6e5236", { rough: 0.7 }), 0, -2, 0), box([52, 0.05, 38], mat("#2c4766", { rough: 0.95 }), 0, 0, 0))
+/** The desk top's size, width and depth, when the layout does not ask for a bigger one. */
+export const DESK_SIZE: readonly [number, number] = [160, 110]
+
+export const buildDesk = (size: readonly [number, number] = DESK_SIZE): Group => {
+  const desk = group(box([size[0], 2, size[1]], mat("#6e5236", { rough: 0.7 }), 0, -2, 0), box([52, 0.05, 38], mat("#2c4766", { rough: 0.95 }), 0, 0, 0))
   desk.traverse((o) => {
     o.receiveShadow = true
   })

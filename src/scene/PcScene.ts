@@ -38,9 +38,9 @@ import type { Hint } from "../core/progress.ts"
 import type { Placed } from "../core/machine.ts"
 import type { PartKind, Turn } from "../core/parts.ts"
 import type { Scenario } from "../core/scenario.ts"
-import { buildBoard, buildDesk, buildLever } from "./board.ts"
+import { buildBoard, buildDesk, buildLever, DESK_SIZE } from "./board.ts"
 import { buildCase, powerButton } from "./case.ts"
-import { FRONT_VIEW } from "./focus.ts"
+import { type Bounds, FRONT_VIEW } from "./focus.ts"
 import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
 import { noDiskTexture, signTexture } from "./textures.ts"
@@ -119,26 +119,29 @@ const TIP_EDGE_PX = 8
 const HOLD_GAP = 1.5
 
 /** Kinds that sit on a desk as a whole device: an opened box shows one of them. */
-/** A look at one part: this many times its size away, but never closer than MIN_PART_LOOK. */
-const PART_LOOK = 3.6
-const MIN_PART_LOOK = 18
-/** A look at a part's box on the grade 3–4 desk. */
-const BOX_LOOK = 40
+/** A fitted look never comes closer than this: a tiny part still shows a little of what is round it. */
+const MIN_FIT = 26
+/** Only this share of the picture's width and height is used for what must fit: the step card covers its top. */
+const FIT_PAD_H = 0.85
+const FIT_PAD_V = 0.6
 
 /** How much deeper than the farthest camera distance the camera still draws: the far side of the desk. */
 const FAR_MARGIN = 300
 
-type KeyMove = "left" | "right" | "up" | "down" | "in" | "out"
-/** Keys that move the camera: arrows and W A S D turn and tilt it, + and − zoom. Codes match any keyboard layout. */
+type KeyMove = "left" | "right" | "up" | "down" | "in" | "out" | "forward" | "back" | "strafeLeft" | "strafeRight"
+/**
+ * Keys that move the camera: W A S D fly it over the desk, the arrows turn and tilt it, + and − zoom.
+ * Codes match any keyboard layout.
+ */
 const KEY_MOVES: Readonly<Record<string, KeyMove>> = {
+  KeyW: "forward",
+  KeyS: "back",
+  KeyA: "strafeLeft",
+  KeyD: "strafeRight",
   ArrowLeft: "left",
-  KeyA: "left",
   ArrowRight: "right",
-  KeyD: "right",
   ArrowUp: "up",
-  KeyW: "up",
   ArrowDown: "down",
-  KeyS: "down",
   Equal: "in",
   NumpadAdd: "in",
   "+": "in",
@@ -148,6 +151,8 @@ const KEY_MOVES: Readonly<Record<string, KeyMove>> = {
   PageUp: "in",
   PageDown: "out",
 }
+/** How fast the camera flies over the desk: this share of its distance from the point it looks at, a second. */
+const FLY_SPEED = 0.9
 /** Radians a second the camera turns round and tilts while a key is held. */
 const TURN_SPEED = 1.6
 const TILT_SPEED = 1.0
@@ -255,14 +260,14 @@ export class PcScene implements SceneHandle {
     if (!light) {
       sun.castShadow = true
       sun.shadow.mapSize.set(2048, 2048)
-      const reach = layout.bench === "board" ? 22 : Math.max(34, (layout.overview ?? 100) * 0.42)
+      const reach = layout.bench === "board" ? 22 : Math.max(34, (layout.overview ?? 100) * 0.42, (layout.desk?.[0] ?? 0) / 2)
       Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 10, far: 120 })
       sun.shadow.bias = -0.0005
       sun.shadow.normalBias = 0.03
     }
     this.scene.add(sun)
 
-    this.scene.add(buildDesk())
+    this.scene.add(buildDesk(layout.desk))
     this.bench.position.y = 0.05
     this.scene.add(this.bench)
     this.benchModel =
@@ -327,7 +332,7 @@ export class PcScene implements SceneHandle {
     el.addEventListener("pointerup", this.onUp)
     el.addEventListener("pointerleave", this.onLeave)
     el.tabIndex = 0
-    el.setAttribute("aria-label", "Тривимірний стіл. Стрілки або W A S D повертають камеру, + і − наближають і віддаляють")
+    el.setAttribute("aria-label", "Тривимірний стіл. W A S D переміщують камеру, стрілки повертають її, + і − наближають і віддаляють")
     el.addEventListener("keydown", this.onKeyDown)
     el.addEventListener("keyup", this.onKeyUp)
     el.addEventListener("blur", this.onBlur)
@@ -352,11 +357,49 @@ export class PcScene implements SceneHandle {
   }
 
   /** Glides the camera to look at a point from a comfortable distance and direction; farther on a narrow screen. */
-  focus(at: Vec3, distance = 26, view: Vec3 = FRONT_VIEW): void {
+  focus(at: Vec3, distance = 26, view: Vec3 = FRONT_VIEW, bounds?: Bounds, parts: ReadonlyArray<string> = []): void {
     this.focusTarget.set(at[0], at[1], at[2])
-    const offset = new Vector3(...view).normalize().multiplyScalar(distance * this.narrowFactor(distance))
-    this.focusFrom = this.focusTarget.clone().add(offset)
+    const dir = new Vector3(...view).normalize()
+    const box = new Box3()
+    if (bounds) box.set(new Vector3(...bounds[0]), new Vector3(...bounds[1]))
+    for (const part of parts) for (const obj of this.objectsOf(part)) box.union(new Box3().setFromObject(obj))
+    // with something to show, look at its middle and stand back just far enough for all of it; otherwise as far as asked
+    if (!box.isEmpty()) box.getCenter(this.focusTarget)
+    const far = box.isEmpty()
+      ? distance * this.narrowFactor(distance)
+      : Math.min(this.controls.maxDistance, Math.max(MIN_FIT, this.fitDistance(box, dir)))
+    this.focusFrom = this.focusTarget.clone().addScaledVector(dir, far)
     this.focusing = 1
+  }
+
+  /** The distance from the target at which every corner of the box is inside the picture, seen from this direction. */
+  private fitDistance(box: Box3, dir: Vector3): number {
+    const right = new Vector3(0, 1, 0).cross(dir).normalize()
+    if (right.lengthSq() === 0) right.set(1, 0, 0)
+    const up = dir.clone().cross(right)
+    const tan = Math.tan((this.camera.fov * Math.PI) / 360)
+    const tanV = tan * FIT_PAD_V
+    const tanH = tan * FIT_PAD_H * Math.max(0.3, this.camera.aspect)
+    let need = 0
+    for (const x of [box.min.x, box.max.x])
+      for (const y of [box.min.y, box.max.y])
+        for (const z of [box.min.z, box.max.z]) {
+          const c = new Vector3(x, y, z).sub(this.focusTarget)
+          const depth = c.dot(dir)
+          need = Math.max(need, Math.abs(c.dot(right)) / tanH + depth, Math.abs(c.dot(up)) / tanV + depth)
+        }
+    return need
+  }
+
+  /** What shows a part in the scene now: where it lies, its box, the device out of the box, or where it stands. */
+  private objectsOf(part: string): Object3D[] {
+    const found: Object3D[] = []
+    for (const l of this.loose) if (l.part === part && l.mesh.visible) found.push(l.mesh)
+    for (const b of this.boxes) if (b.part === part) found.push(...[b.closed, b.open].filter((o): o is Group => o !== null && o.visible))
+    const placed = this.placedMeshes.get(part)
+    if (placed?.mesh.visible) found.push(placed.mesh)
+    if (part === this.layout.benchPart) found.push(this.benchModel)
+    return found
   }
 
   /**
@@ -539,27 +582,15 @@ export class PcScene implements SceneHandle {
    * it stands in, or the bench itself. False when the part is nowhere in the scene.
    */
   showPart(part: string): boolean {
-    const lying = this.loose.find((l) => l.part === part && l.mesh.visible)
-    if (lying) {
-      this.focus([lying.centre.x, lying.centre.y, lying.centre.z], Math.max(MIN_PART_LOOK, lying.radius * PART_LOOK))
-      return true
-    }
-    const box = this.layout.boxes?.find((b) => b.part === part)
-    if (box) {
-      this.focus(box.at, BOX_LOOK)
-      return true
-    }
+    const objects = this.objectsOf(part)
+    if (objects.length === 0) return false
+    const box = new Box3()
+    for (const obj of objects) box.union(new Box3().setFromObject(obj))
+    const centre = box.getCenter(new Vector3())
     const slot = Object.entries(this.view.placed).find(([, p]) => p.part === part)?.[0]
-    const pose = slot ? this.layout.slots[slot] : undefined
-    if (pose) {
-      this.focus(pose.at, Math.max(MIN_PART_LOOK, Math.max(...pose.area) * PART_LOOK), pose.view ?? FRONT_VIEW)
-      return true
-    }
-    if (part === this.layout.benchPart) {
-      this.focus([0, 0, 0], this.layout.overview ?? 40)
-      return true
-    }
-    return false
+    const view = (slot ? this.layout.slots[slot]?.view : undefined) ?? FRONT_VIEW
+    this.focus([centre.x, centre.y, centre.z], 0, view, [box.min.toArray(), box.max.toArray()])
+    return true
   }
 
   /** Markers of the data path: blue until tapped in turn, green once on the path, joined by arrows. */
@@ -722,7 +753,7 @@ export class PcScene implements SceneHandle {
     const w = this.renderer.domElement.clientWidth
     const h = this.renderer.domElement.clientHeight
     const p = new Vector3()
-    const wanted: Array<{ id: string; tag: HTMLDivElement; x: number; y: number; rank: number; fits: boolean }> = []
+    const wanted: Array<{ id: string; tag: HTMLDivElement; x: number; y: number; rank: number; fits: boolean; group?: string }> = []
     for (const area of this.areas) {
       const tag = this.tags.get(area.id)
       const pose = this.layout.slots[area.id]
@@ -744,14 +775,16 @@ export class PcScene implements SceneHandle {
         continue
       }
       // the slot under the pointer first, then the targets, then the rest: the first ones keep their place
-      wanted.push({ id: area.id, tag, x, y, rank: hover ? 0 : fits || hint ? 1 : 2, fits })
+      wanted.push({ id: area.id, tag, x, y, rank: hover ? 0 : fits || hint ? 1 : 2, fits, ...(pose.group ? { group: pose.group } : {}) })
     }
     wanted.sort((a, b) => a.rank - b.rank)
-    const placed: Array<{ text: string; x: number; y: number; left: number; right: number; row: number }> = []
+    const placed: Array<{ text: string; x: number; y: number; left: number; right: number; row: number; group?: string }> = []
     for (const item of wanted) {
       const { tag, x, y } = item
       const text = tag.textContent ?? ""
-      if (item.rank > 0 && placed.some((o) => o.text === text && Math.hypot(o.x - x, o.y - y) < SAME_TAG_PX)) {
+      // one tag is enough for the places of one basket: the same name over each of them only piles up
+      const sameGroup = (o: { text: string; group?: string }) => item.group !== undefined && o.group === item.group && o.text === text
+      if (item.rank > 0 && placed.some((o) => sameGroup(o) || (o.text === text && Math.hypot(o.x - x, o.y - y) < SAME_TAG_PX))) {
         tag.hidden = true
         continue
       }
@@ -768,7 +801,7 @@ export class PcScene implements SceneHandle {
         tag.hidden = true
         continue
       }
-      placed.push({ text, x, y, left, right, row })
+      placed.push({ text, x, y, left, right, row, ...(item.group ? { group: item.group } : {}) })
       tag.style.transform = `translate(${x.toFixed(1)}px, ${(y - row * TAG_ROW_PX).toFixed(1)}px) translate(-50%, -100%)`
       tag.classList.toggle("is-raised", row > 0)
       tag.classList.toggle("is-fit", item.fits)
@@ -949,7 +982,7 @@ export class PcScene implements SceneHandle {
     this.keys.clear()
   }
 
-  /** Turns, tilts and zooms the camera around the point it looks at while keys are held. */
+  /** While keys are held: flies the camera over the desk, turns and tilts it round the point it looks at, zooms. */
   private steer(time: number): void {
     const dt = Math.min(0.1, Math.max(0, (time - this.lastFrame) / 1000))
     this.lastFrame = time
@@ -963,6 +996,19 @@ export class PcScene implements SceneHandle {
     s.phi = Math.min(this.controls.maxPolarAngle, Math.max(MIN_POLAR, s.phi))
     const zoom = (k.has("out") ? 1 : 0) - (k.has("in") ? 1 : 0)
     s.radius = Math.min(this.controls.maxDistance, Math.max(this.controls.minDistance, s.radius * Math.exp(zoom * ZOOM_SPEED * dt)))
+    // W A S D fly the camera and the point it looks at together, level over the desk, the way the camera faces
+    // the point the camera looks at stays over the desk: it may not fly off into the dark
+    const ahead = (k.has("forward") ? 1 : 0) - (k.has("back") ? 1 : 0)
+    const aside = (k.has("strafeRight") ? 1 : 0) - (k.has("strafeLeft") ? 1 : 0)
+    if (ahead !== 0 || aside !== 0) {
+      const forward = new Vector3(-offset.x, 0, -offset.z).normalize()
+      const right = new Vector3(-forward.z, 0, forward.x)
+      const step = forward.multiplyScalar(ahead).add(right.multiplyScalar(aside)).normalize().multiplyScalar(s.radius * FLY_SPEED * dt)
+      const target = this.controls.target
+      const [w, d] = this.layout.desk ?? DESK_SIZE
+      target.x = Math.min(w / 2, Math.max(-w / 2, target.x + step.x))
+      target.z = Math.min(d / 2, Math.max(-d / 2, target.z + step.z))
+    }
     this.camera.position.copy(this.controls.target).add(new Vector3().setFromSpherical(s))
   }
 

@@ -123,6 +123,8 @@ export interface SceneLayout {
     readonly crates?: ReadonlyArray<CratePose>;
     readonly boxes?: ReadonlyArray<BoxPose>;
     readonly loose?: ReadonlyArray<LoosePose>;
+    /** The desk top's width and depth, when the exercise needs more room than the usual desk. */
+    readonly desk?: readonly [number, number];
     /** Where the camera goes once the exercise is done, to show the result: the lit monitor. */
     readonly finale?: {
         readonly at: Vec3;
