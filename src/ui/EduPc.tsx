@@ -238,7 +238,11 @@ export const EduPc = ({
       : scenario.steps.slice(state.step + 1).flatMap((s) => (s.kind === "place" ? Object.keys(s.targets) : []))
   )
   const trayParts = scenario.parts.filter(
-    (p) => (slotOf(state, p.id) === undefined || stillToPlace(scenario, state, p.id)) && !later.has(p.id)
+    (p) =>
+      (slotOf(state, p.id) === undefined || stillToPlace(scenario, state, p.id)) &&
+      !later.has(p.id) &&
+      // a cable's second end hangs on the cable: it is in reach once the first end is plugged in
+      (p.end === undefined || slotOf(state, p.end) !== undefined)
   )
   const heldPart = held ? scenario.parts.find((p) => p.id === held.part) : undefined
   const infoPart = build.info ? scenario.parts.find((p) => p.id === build.info) : undefined
@@ -327,7 +331,15 @@ export const EduPc = ({
       </div>
       <footer className="edu-pc-foot">
         {heldPart ? (
-          <HeldBar part={heldPart} onTurn={build.rotate} onPutBack={build.putBack} />
+          <HeldBar
+            part={heldPart}
+            onTurn={build.rotate}
+            onPutBack={build.putBack}
+            needsTurn={
+              step?.kind === "place" &&
+              (step.targets[heldPart.id] ?? []).some((id) => scenario.slots.find((s) => s.id === id)?.turn !== undefined)
+            }
+          />
         ) : (
           <Tray
             parts={trayParts}

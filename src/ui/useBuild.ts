@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import { apply, currentStep, isDone, startState, type Action, type BuildState, type Outcome } from "../core/machine.ts"
+import { apply, currentStep, isDone, slotOf, startState, type Action, type BuildState, type Outcome } from "../core/machine.ts"
 import { turn, type Turn } from "../core/parts.ts"
 import { hintFor, report, type Report } from "../core/progress.ts"
 import type { Scenario } from "../core/scenario.ts"
@@ -71,9 +71,16 @@ export const useBuild = (scenario: Scenario, callbacks: BuildCallbacks, initial?
     (slot: string) => {
       if (!held) return
       const outcome = act({ type: "place", part: held.part, slot, turn: held.turn })
-      if (outcome.result === "ok") setHeld(null)
+      if (outcome.result !== "ok") return
+      // a cable with a second end: that end comes into the hand, so the student plugs the cable in from both sides
+      const next = currentStep(scenario, outcome.state)
+      const end = scenario.parts.find(
+        (p) => p.end === held.part && next?.kind === "place" && next.targets[p.id] && slotOf(outcome.state, p.id) === undefined
+      )
+      setHeld(end ? { part: end.id, turn: 0 } : null)
+      if (end) say(`Тепер другий кінець: ${end.name}.`, "info")
     },
-    [act, held]
+    [act, held, scenario, say]
   )
 
   const restart = useCallback(() => {

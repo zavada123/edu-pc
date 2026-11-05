@@ -26,7 +26,7 @@ export const grade8Lab: Scenario = {
   parts: grade8Case.parts,
   slots: grade8Case.slots,
   controls: grade8Case.controls,
-  start: { placed: built, controls: { power: "on" } },
+  start: { placed: built, controls: { power: "on", psuSwitch: "on" } },
   steps: [
     {
       id: "path",

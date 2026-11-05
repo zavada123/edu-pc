@@ -162,6 +162,34 @@ export const sataPowerPlug = (): Group =>
 export const sataDataPlug = (): Group =>
   cableOut(group(rounded([1.0, 1.1, 0.5], 0.06, M.red), box([0.8, 0.12, 0.3], M.chip, 0, 0, 0)), new Vector3(0, 1.3, 0), new Vector3(0, 1, 0))
 
+/**
+ * The plug of a removable cable at the power supply's end: an 8-pin block going +z into a red socket on the
+ * supply, its cable leaving towards -z, into the case.
+ */
+export const psuPlug = (): Group =>
+  cableOut(
+    group(rounded([1.0, 2.0, 1.4], 0.08, M.blackPlastic, 0, -1, -0.7), box([0.3, 0.6, 0.5], M.blackPlastic, 0.6, -0.3, -0.8)),
+    new Vector3(0, 0, -1.6),
+    new Vector3(0, 0, -1)
+  )
+
+/** The thin plugs of the case's front panel: they go into the board's headers from above. */
+export const headerPlug = (kind: "panel" | "audio" | "usb"): Group => {
+  const looks: Record<typeof kind, { size: [number, number, number]; body: Material }> = {
+    panel: { size: [1.6, 0.8, 0.55], body: M.blackPlastic },
+    audio: { size: [1.2, 0.8, 0.55], body: M.blackPlastic },
+    usb: { size: [2.2, 0.9, 0.9], body: M.blueUsb }
+  }
+  const look = looks[kind]
+  const g = group(rounded(look.size, 0.06, look.body))
+  if (kind === "panel") {
+    // a strip of coloured wires going in, one per button and light
+    const wires = [M.red, M.blackPlastic, M.yellow, M.accent]
+    wires.forEach((w, i) => g.add(box([0.14, 0.4, 0.14], w, -0.45 + i * 0.3, 0.8, 0)))
+  }
+  return cableOut(g, new Vector3(0, look.size[1] + 0.3, 0), new Vector3(0, 1, 0))
+}
+
 /** An HDMI plug, pointing -z into the socket. */
 export const hdmiPlug = (): Group =>
   cableOut(

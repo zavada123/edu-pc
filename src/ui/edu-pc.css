@@ -686,3 +686,8 @@
   transform: translateX(-50%);
   opacity: 0.55;
 }
+
+.edu-pc-held-turn {
+  color: var(--edu-pink-700);
+  font-weight: 600;
+}

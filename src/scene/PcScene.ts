@@ -44,9 +44,12 @@ import { type Bounds, FRONT_VIEW } from "./focus.ts"
 import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
 import { noDiskTexture, signTexture } from "./textures.ts"
-import { GRADE8_BOARD, type LoosePose, type SceneLayout, type Vec3 } from "./layout.ts"
+import { CASE_FLOOR, GRADE8_BOARD, type LoosePose, type SceneLayout, type SlotPose, type Vec3 } from "./layout.ts"
+
+/** How high a cable hangs loose in the case while its second end is not plugged in yet. */
+const CASE_LOOSE_Y = CASE_FLOOR + 0.6
 export { preloadModels } from "./gltf.ts"
-import { buildModel, deviceModel, type DeviceKind, iconModel, MODELLED, placedModel, systemUnit } from "./models.ts"
+import { buildModel, deviceModel, type DeviceKind, iconModel, MODELLED, placedModel, plugEnd, systemUnit } from "./models.ts"
 
 export interface SceneEvents {
   /** The student clicked a slot while holding a part. */
@@ -194,7 +197,7 @@ export class PcScene implements SceneHandle {
   private readonly loose: Array<{ part: string; mesh: Group; centre: Vector3; radius: number }> = []
   private spinners: Object3D[] | null = null
   private readonly areas: SlotArea[] = []
-  private readonly placedMeshes = new Map<string, { slot: string; mesh: Group }>()
+  private readonly placedMeshes = new Map<string, { slot: string; key: string; mesh: Group }>()
   private heldMesh: { part: string; mesh: Group; reach: number } | null = null
   private readonly ray = new Raycaster()
   private readonly pointer = new Vector2()
@@ -517,28 +520,53 @@ export class PcScene implements SceneHandle {
 
   private syncPlaced(): void {
     const want = this.view.placed
+    const wanted = new Map(Object.entries(want).map(([slotId, placed]) => [slotId, this.placedLook(slotId, placed)]))
     for (const [partId, entry] of this.placedMeshes) {
-      if (want[entry.slot]?.part !== partId) {
+      if (want[entry.slot]?.part !== partId || wanted.get(entry.slot)?.key !== entry.key) {
         this.bench.remove(entry.mesh)
         this.placedMeshes.delete(partId)
       }
     }
     for (const [slotId, placed] of Object.entries(want)) {
       if (this.placedMeshes.get(placed.part)?.slot === slotId) continue
-      const pose = this.layout.slots[slotId]
-      const part = this.scenario.parts.find((p) => p.id === placed.part)
-      if (!pose || !part) continue
-      // a slot that takes any turn shows the part the way it really goes in
-      const fixed = this.scenario.slots.find((s) => s.id === slotId)?.turn
-      const mesh = placedModel(part.kind, pose, fixed === undefined ? 0 : placed.turn)
-      mesh.userData.part = part.id
+      const look = wanted.get(slotId)
+      if (!look) continue
+      const mesh = look.build()
+      mesh.userData.part = placed.part
       this.bench.add(mesh)
-      this.placedMeshes.set(part.id, { slot: slotId, mesh })
+      this.placedMeshes.set(placed.part, { slot: slotId, key: look.key, mesh })
     }
     // a part taken back into the hand leaves its place: it is in the hand now
     for (const [partId, entry] of this.placedMeshes) entry.mesh.visible = this.view.held?.part !== partId
     this.screens = [...this.propScreens, ...[...this.placedMeshes.values()].flatMap((p) => screensOf(p.mesh))]
     this.spinners = null
+  }
+
+  /**
+   * How a placed part looks, and a key that changes when that look does. A cable with a second end draws one
+   * cable between its two plugs once both are in; until then it hangs loose by the socket it is going to.
+   */
+  private placedLook(slotId: string, placed: { readonly part: string; readonly turn: Turn }): { key: string; build: () => Group } | null {
+    const pose = this.layout.slots[slotId]
+    const part = this.scenario.parts.find((p) => p.id === placed.part)
+    if (!pose || !part) return null
+    const turnIn = (slot: string, turn: Turn): number => (this.scenario.slots.find((s) => s.id === slot)?.turn === undefined ? 0 : turn)
+    // a slot that takes any turn shows the part the way it really goes in
+    const turn = turnIn(slotId, placed.turn)
+    const at = (partId: string) => Object.entries(this.view.placed).find(([, p]) => p.part === partId)
+    if (part.end !== undefined && at(part.end)) return { key: `${slotId}|joined`, build: () => placedModel(part.kind, pose, turn, "none") }
+    const second = this.scenario.parts.find((p) => p.end === part.id)
+    if (!second) return { key: slotId, build: () => placedModel(part.kind, pose, turn) }
+    const there = at(second.id)
+    const otherPose = there ? this.layout.slots[there[0]] : undefined
+    if (there && otherPose) {
+      const end = plugEnd(second.kind, otherPose, turnIn(there[0], there[1].turn))
+      return { key: `${slotId}|${there[0]}`, build: () => placedModel(part.kind, pose, turn, end ?? "own") }
+    }
+    // the second end is not in yet: the cable hangs down short of the socket it goes to
+    const from = pose.cableFrom
+    const loose: SlotPose = from ? { ...pose, cableFrom: [from[0] - 2, CASE_LOOSE_Y, from[2] - 5] } : pose
+    return { key: `${slotId}|loose`, build: () => placedModel(part.kind, loose, turn) }
   }
 
   /** A closed box on the desk, and the device it holds once opened. */

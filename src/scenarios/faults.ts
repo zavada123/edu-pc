@@ -111,7 +111,7 @@ export const grade8FaultCpuPower = faultScenario(
     },
     change: { cpuPowerPort: "" }
   },
-  { power: "off" }
+  { power: "off", psuSwitch: "on" }
 )
 
 export const grade8FaultHdmi = faultScenario(
@@ -135,7 +135,7 @@ export const grade8FaultHdmi = faultScenario(
     },
     change: { boardHdmi: "monitor" }
   },
-  { power: "off" }
+  { power: "off", psuSwitch: "on" }
 )
 
 export const grade8FaultDisk = faultScenario(
@@ -159,7 +159,7 @@ export const grade8FaultDisk = faultScenario(
     },
     change: { sataPort: "" }
   },
-  { power: "off" }
+  { power: "off", psuSwitch: "on" }
 )
 
 /** The grade 3–4 computer also has a power strip; it is on unless the fault is the strip. */

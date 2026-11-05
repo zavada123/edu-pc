@@ -153,6 +153,9 @@ const place = (
   const part: Part | undefined = scenario.parts.find((p) => p.id === action.part)
   if (!slot || !part) return ignored(state, MESSAGES.notNow(step.title))
   const name = partName(scenario, action.part)
+  if (part.end !== undefined && slotOf(state, part.end) === undefined) {
+    return ignored(state, MESSAGES.firstEnd(partName(scenario, part.end)))
+  }
   const occupant = state.placed[slot.id]
   if (occupant && occupant.part !== action.part) return ignored(state, MESSAGES.slotTaken(slot.label))
   if (!slot.accepts.includes(part.kind)) return mistake(step, state, "wrongKind", MESSAGES.wrongKind(name, slot.label))

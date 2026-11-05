@@ -29,10 +29,12 @@ export declare const Tray: ({ parts, held, highlighted, benchPart, icons, onPick
     icons: Partial<Record<string, string>>;
     onPick: (part: Part) => void;
 }) => import("react").JSX.Element;
-export declare const HeldBar: ({ part, onTurn, onPutBack }: {
+export declare const HeldBar: ({ part, onTurn, onPutBack, needsTurn }: {
     part: Part;
     onTurn: (by: 1 | -1) => void;
     onPutBack: () => void;
+    /** The target slot takes the part one way only: say how to turn it. */
+    needsTurn?: boolean;
 }) => import("react").JSX.Element;
 /** What a part is and what it does. It takes the step card's place until it is closed, so only one message is on screen. */
 export declare const PartInfo: ({ part, onClose }: {

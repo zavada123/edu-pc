@@ -143,6 +143,9 @@ const fanPlug = (): Group => {
     ])
     g.add(new Mesh(new TubeGeometry(wire, 24, 0.09, 8), wireMat))
   })
+  // a long cable, as to a case fan, goes on from where the short wires end
+  g.userData.cableOut = new Vector3(0, 2, 2.6)
+  g.userData.cableDir = new Vector3(0, 0, 1)
   return g
 }
 

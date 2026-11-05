@@ -744,6 +744,11 @@
   transform: translateX(-50%);
   opacity: 0.55;
 }
+
+.edu-pc-held-turn {
+  color: var(--edu-pink-700);
+  font-weight: 600;
+}
 /* Task cards grouped by grade. Classes start with `edu-pc-cat-` so the catalog can live inside any page; colors from tokens.css. */
 
 .edu-pc-cat {

@@ -16,6 +16,13 @@ export declare const eightPinPlug: (tag: "CPU" | "PCIe") => Group;
 export declare const sataPowerPlug: () => Group;
 /** The small red SATA data plug: it goes into the board's SATA port from above. */
 export declare const sataDataPlug: () => Group;
+/**
+ * The plug of a removable cable at the power supply's end: an 8-pin block going +z into a red socket on the
+ * supply, its cable leaving towards -z, into the case.
+ */
+export declare const psuPlug: () => Group;
+/** The thin plugs of the case's front panel: they go into the board's headers from above. */
+export declare const headerPlug: (kind: "panel" | "audio" | "usb") => Group;
 /** An HDMI plug, pointing -z into the socket. */
 export declare const hdmiPlug: () => Group;
 /** A USB plug, pointing -z into the socket; grey for the keyboard, black for the mouse. */

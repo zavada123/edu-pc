@@ -3,6 +3,7 @@ export declare const MESSAGES: {
     readonly wrongKind: (part: string, slot: string) => string;
     readonly wrongSlot: (part: string, slot: string) => string;
     readonly wrongTurn: (part: string) => string;
+    readonly firstEnd: (cable: string) => string;
     readonly notReady: (control: string) => string;
     readonly wrongAnswer: "Ще ні. Перечитай пояснення кроку й спробуй іншу відповідь.";
     readonly slotTaken: (slot: string) => string;

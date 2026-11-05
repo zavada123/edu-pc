@@ -135,6 +135,11 @@ export declare class PcScene implements SceneHandle {
     private takes;
     private kindOf;
     private syncPlaced;
+    /**
+     * How a placed part looks, and a key that changes when that look does. A cable with a second end draws one
+     * cable between its two plugs once both are in; until then it hangs loose by the socket it is going to.
+     */
+    private placedLook;
     /** A closed box on the desk, and the device it holds once opened. */
     private addBox;
     /** A part lying on the desk: its lowest point rests at the pose. */
