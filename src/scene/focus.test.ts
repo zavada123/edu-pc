@@ -1,18 +1,28 @@
 import { describe, expect, test } from "vitest"
-import { FRONT_VIEW, focusPoint, focusStops } from "./focus.ts"
+import { type Bounds, FRONT_VIEW, focusPoint, focusStops } from "./focus.ts"
 import { scenarios } from "../scenarios/index.ts"
-import { grade3DeskLayout, grade8CaseLayout, grade8DeskLayout, grade8FaultLayout, grade8LabLayout, layouts, standing } from "./layout.ts"
+import { grade3DeskLayout, grade8CaseLayout, grade8DeskLayout, grade8LabLayout, layouts, standing, type Vec3 } from "./layout.ts"
+
+const inside = (bounds: Bounds | undefined, p: Vec3): boolean =>
+  bounds !== undefined && [0, 1, 2].every((k) => (bounds[0][k] ?? 0) <= (p[k] ?? 0) && (p[k] ?? 0) <= (bounds[1][k] ?? 0))
 
 describe("focusPoint", () => {
-  test("looks at the whole board and the parts round it when there is nothing to place", () => {
-    const [at, distance, view] = focusPoint(grade8DeskLayout, [], undefined)
-    expect(Math.hypot(at[0], at[2])).toBeLessThan(5)
-    expect(distance).toBe(grade8DeskLayout.overview)
+  test("keeps the whole board and the parts round it in the picture when there is nothing to place", () => {
+    const [at, , view, bounds] = focusPoint(grade8DeskLayout, [], undefined)
+    expect(Math.hypot(at[0], at[2])).toBeLessThan(10)
     expect(view).toEqual(FRONT_VIEW)
+    for (const l of grade8DeskLayout.loose ?? []) expect(inside(bounds, l.at), l.part).toBe(true)
   })
 
-  test("looks at the bench alone when no parts lie round it", () => {
-    expect(focusPoint(grade8FaultLayout, [], undefined)).toEqual([[0, 0, 0], grade8FaultLayout.overview, FRONT_VIEW])
+  test("looks at the bench alone when nothing stands round it", () => {
+    const bare = { ...grade8DeskLayout, loose: [] }
+    expect(focusPoint(bare, [], undefined)).toEqual([[0, 0, 0], bare.overview, FRONT_VIEW])
+  })
+
+  test("keeps every box and basket of the grade 3–4 desk in the picture", () => {
+    const [, , , bounds] = focusPoint(grade3DeskLayout, [], undefined)
+    for (const b of grade3DeskLayout.boxes ?? []) expect(inside(bounds, b.at), b.part).toBe(true)
+    for (const c of grade3DeskLayout.crates ?? []) expect(inside(bounds, c.at)).toBe(true)
   })
 
   test("looks at the lever on a lever step", () => {
@@ -45,11 +55,9 @@ describe("focusPoint", () => {
     expect(view[0]).toBeLessThan(0)
   })
 
-  test("stands back for the whole case and the parts in front of it", () => {
-    const [at, distance] = focusPoint(grade8CaseLayout, [], undefined)
-    expect(distance).toBeGreaterThan(grade8CaseLayout.overview ?? 0)
-    // the parts lie in front of the case: the look moves towards them
-    expect(at[2]).toBeGreaterThan(0)
+  test("keeps the case and the parts in front of it in the picture", () => {
+    const [, , , bounds] = focusPoint(grade8CaseLayout, [], undefined)
+    for (const l of grade8CaseLayout.loose ?? []) expect(inside(bounds, l.at), l.part).toBe(true)
   })
 
   test("keeps the monitor's button in view when it is the likely mistake on the power step", () => {
@@ -86,5 +94,28 @@ describe("parts lying on the desk", () => {
     const scenario = scenarios[id]
     const placedByStep = new Set(scenario?.steps.flatMap((s) => (s.kind === "place" ? Object.keys(s.targets) : [])))
     for (const pose of layout.loose ?? []) expect(placedByStep.has(pose.part), pose.part).toBe(true)
+  })
+})
+
+describe("the grade 3–4 desk", () => {
+  // what stands on the desk, as footprints: x from, x to, z from, z to
+  const boxes = (grade3DeskLayout.boxes ?? []).map((b) => [b.at[0] - 9, b.at[0] + 9, b.at[2] - 7.5, b.at[2] + 7.5] as const)
+  const crates = (grade3DeskLayout.crates ?? []).map((c) => [c.at[0] - 20, c.at[0] + 20, c.at[2] - 13, c.at[2] + 13] as const)
+  const apart = (a: readonly number[], b: readonly number[]) =>
+    (a[1] ?? 0) <= (b[0] ?? 0) || (b[1] ?? 0) <= (a[0] ?? 0) || (a[3] ?? 0) <= (b[2] ?? 0) || (b[3] ?? 0) <= (a[2] ?? 0)
+
+  test("nothing on it overlaps anything else", () => {
+    const all = [...boxes, ...crates]
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) expect(apart(all[i] ?? [], all[j] ?? []), `${i} ${j}`).toBe(true)
+  })
+
+  test("everything stands on the desk", () => {
+    const [w, d] = grade3DeskLayout.desk ?? [0, 0]
+    for (const f of [...boxes, ...crates]) {
+      expect(f[0]).toBeGreaterThanOrEqual(-w / 2)
+      expect(f[1]).toBeLessThanOrEqual(w / 2)
+      expect(f[2]).toBeGreaterThanOrEqual(-d / 2)
+      expect(f[3]).toBeLessThanOrEqual(d / 2)
+    }
   })
 })

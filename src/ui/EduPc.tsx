@@ -3,7 +3,7 @@ import { currentStep, isDone, slotOf, type BuildState } from "../core/machine.ts
 import type { Part } from "../core/parts.ts"
 import { report } from "../core/progress.ts"
 import type { Scenario } from "../core/scenario.ts"
-import { focusPoint, focusStops } from "../scene/focus.ts"
+import { type Aim, focusPoint, focusStops } from "../scene/focus.ts"
 import { layouts, type SceneLayout } from "../scene/layout.ts"
 import type { PcScene, SceneHandle } from "../scene/PcScene.ts"
 import { DoneCard, HeldBar, PartInfo, QuestionCard, SortCard, StepCard, StepList, ToastLine, Tray, UpgradeCard } from "./panels.tsx"
@@ -150,14 +150,15 @@ export const EduPc = ({
       step?.kind === "place"
         ? [...new Set([...Object.values(step.targets).flat(), ...Object.keys(step.targets).flatMap((p) => slotOf(state, p) ?? [])])]
         : hint.slots
-    const [at, distance, view] = step?.kind === "sequence"
+    const aim: Aim = step?.kind === "sequence"
       ? focusStops(sceneLayout, step.stops.map((s) => s.id))
       : (finished || (step?.look === "result" && !!step.question && !state.answered.includes(step.id))) && sceneLayout.finale ? [sceneLayout.finale.at, sceneLayout.finale.distance, sceneLayout.finale.view] : focusPoint(sceneLayout, slots, hint.control?.id, step?.kind === "set" ? Object.keys(step.otherControls ?? {}) : [])
     // wait a frame: on the first render the scene module is still loading
     const t = window.setTimeout(() => {
       // a part the student reads about: the camera flies to it; once the card is closed, back to the step
       if (build.info && sceneRef.current?.showPart(build.info)) return
-      sceneRef.current?.focus(at, distance, view)
+      // the parts the step moves stay in the picture too, wherever they stand now
+      sceneRef.current?.focus(aim[0], aim[1], aim[2], aim[3], step?.kind === "place" ? Object.keys(step.targets) : [])
     }, 60)
     return () => window.clearTimeout(t)
     // Focus once per step, not on every hint change inside a step: hint is left out on purpose.

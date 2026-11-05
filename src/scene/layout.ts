@@ -128,6 +128,8 @@ export interface SceneLayout {
   readonly crates?: ReadonlyArray<CratePose>
   readonly boxes?: ReadonlyArray<BoxPose>
   readonly loose?: ReadonlyArray<LoosePose>
+  /** The desk top's width and depth, when the exercise needs more room than the usual desk. */
+  readonly desk?: readonly [number, number]
   /** Where the camera goes once the exercise is done, to show the result: the lit monitor. */
   readonly finale?: { readonly at: Vec3; readonly distance: number; readonly view: Vec3 }
 }
@@ -364,8 +366,12 @@ const BEHIND: Vec3 = [-0.35, 0.5, -1]
 const DESK_MONITOR: Vec3 = [-22, 0, -40]
 const DESK_KEYBOARD: Vec3 = [-22, 0, -16]
 const DESK_MOUSE: Vec3 = [10, 0, -16]
-const CRATE_Z = 32
-const CRATE_X = { in: -48, out: 0, store: 48 } as const
+const CRATE_Z = 58
+const CRATE_X = { in: -60, out: 0, store: 60 } as const
+/** The grade 3–4 desk is bigger than the usual one: six boxes and three baskets stand on it without touching. */
+const GRADE3_DESK: readonly [number, number] = [220, 150]
+/** The closed boxes stand in a row with room between them, so every name on them can be read. */
+const BOX_Z = 14
 const CRATE_FLOOR = 1
 /** The cables of the desk devices come out of their backs. */
 const MONITOR_CABLE: Vec3 = [DESK_MONITOR[0] - 4, 8, DESK_MONITOR[2] - 3]
@@ -397,7 +403,7 @@ export const grade3DeskLayout: SceneLayout = {
   bench: "tower",
   benchPart: "tower",
   holdHeight: 30,
-  overview: 150,
+  overview: 190,
   power: { control: "power", on: "on", screen: { control: "monitorPower", on: "on" } },
   slots: {
     in1: basket(CRATE_X.in, 2, 0, "in"),
@@ -424,14 +430,16 @@ export const grade3DeskLayout: SceneLayout = {
     { at: [CRATE_X.out, 0, CRATE_Z], label: ["Показує", "результат"], colour: "#f5a524" },
     { at: [CRATE_X.store, 0, CRATE_Z], label: ["Зберігає", "на потім"], colour: "#1fa35c" }
   ],
+  // each device stands where its box was once opened: far enough apart that the wide ones do not touch
   boxes: [
-    { part: "monitor", at: [-50, 0, 8] },
-    { part: "keyboard", at: [-30, 0, 8] },
-    { part: "mouse", at: [-10, 0, 8] },
-    { part: "speakers", at: [10, 0, 8] },
-    { part: "printer", at: [30, 0, 8] },
-    { part: "flash", at: [50, 0, 8] }
+    { part: "monitor", at: [-82, 0, BOX_Z] },
+    { part: "keyboard", at: [-28, 0, BOX_Z] },
+    { part: "mouse", at: [3, 0, BOX_Z] },
+    { part: "printer", at: [32, 0, BOX_Z] },
+    { part: "speakers", at: [74, 0, BOX_Z] },
+    { part: "flash", at: [100, 0, BOX_Z] }
   ],
+  desk: GRADE3_DESK,
   finale: { at: [30, 18, -30], distance: 135, view: [-0.1, 0.5, 1] }
 }
 

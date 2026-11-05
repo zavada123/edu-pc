@@ -12,5 +12,7 @@ export declare const buildBoard: (face: BoardFace, slots: ReadonlyArray<Slot>, p
 /** The socket lever: a metal bar along the socket's right side, pivoting at its front end. */
 export declare const buildLever: (length: number) => Group;
 /** The desk and the antistatic mat under the board. */
-export declare const buildDesk: () => Group;
+/** The desk top's size, width and depth, when the layout does not ask for a bigger one. */
+export declare const DESK_SIZE: readonly [number, number];
+export declare const buildDesk: (size?: readonly [number, number]) => Group;
 export {};

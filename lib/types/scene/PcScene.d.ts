@@ -2,6 +2,7 @@ import type { Hint } from "../core/progress.ts";
 import type { Placed } from "../core/machine.ts";
 import type { PartKind, Turn } from "../core/parts.ts";
 import type { Scenario } from "../core/scenario.ts";
+import { type Bounds } from "./focus.ts";
 import { type SceneLayout, type Vec3 } from "./layout.ts";
 export { preloadModels } from "./gltf.ts";
 export interface SceneEvents {
@@ -111,7 +112,11 @@ export declare class PcScene implements SceneHandle {
     /** Name tags over every slot (on), or only over the slots that matter now: the hint and where the part in hand fits (off). */
     showAllTags(on: boolean): void;
     /** Glides the camera to look at a point from a comfortable distance and direction; farther on a narrow screen. */
-    focus(at: Vec3, distance?: number, view?: Vec3): void;
+    focus(at: Vec3, distance?: number, view?: Vec3, bounds?: Bounds, parts?: ReadonlyArray<string>): void;
+    /** The distance from the target at which every corner of the box is inside the picture, seen from this direction. */
+    private fitDistance;
+    /** What shows a part in the scene now: where it lies, its box, the device out of the box, or where it stands. */
+    private objectsOf;
     /**
      * How much farther to stand on a narrow screen. Close looks need a little more room; a look at a
      * whole wide desk on a phone held upright needs enough to fit the desk's width.
