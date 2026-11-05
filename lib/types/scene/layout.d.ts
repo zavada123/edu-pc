@@ -11,10 +11,17 @@ export interface SlotPose {
     readonly view?: Vec3;
     /** For a cable plug: the point the cable comes from (the power supply, the disk). A tube joins them. */
     readonly cableFrom?: Vec3;
+    /**
+     * Points the cable passes on its way from the plug to where it comes from: through the grommets in the
+     * board tray and behind it, so it does not cross the graphics card.
+     */
+    readonly via?: ReadonlyArray<Vec3>;
     /** The same, by the kind of plug, for a socket several devices may use: a USB port for the keyboard or the mouse. */
     readonly cablesFrom?: Readonly<Partial<Record<PartKind, Vec3>>>;
     /** Turn of a plug around the way it goes in, in radians: a USB plug stands upright in an upright socket. */
     readonly roll?: number;
+    /** Tilt of a plug around x, in radians: π/2 lays a plug made to go in from above on its side, going in towards -z. */
+    readonly pitch?: number;
     /** Shrink the placed part to fit the area, as a big device in a sorting basket. */
     /**
      * A cover over other slots (the case's side panel over the whole inside): it takes the pointer only while
@@ -150,6 +157,10 @@ export declare const BOARD_CONNECTORS: {
     readonly sata: readonly [11.4, 7.5];
     readonly pcieX16: readonly [-3.3, 2.9];
     readonly pcieX1: readonly [-6.6, 5];
+    readonly fPanel: readonly [10.6, 14.6];
+    readonly hdAudio: readonly [-5.4, 14.6];
+    readonly usb3: readonly [11.5, 5.3];
+    readonly chaFan: readonly [-6.4, -1.2];
 };
 /** The board's mounting holes, x and z: the case has a brass standoff under each. */
 export declare const BOARD_HOLES: ReadonlyArray<readonly [number, number]>;
@@ -187,6 +198,12 @@ export declare const GPU_HDMI_LOCAL: Vec3;
 /** The disk's connectors on its back end: data and power. */
 export declare const HDD_DATA_LOCAL: Vec3;
 export declare const HDD_POWER_LOCAL: Vec3;
+export declare const PSU_SOCKETS: {
+    readonly psuPcie1: readonly [15.8, 10.05, number];
+    readonly psuPcie2: readonly [14.7, 10.05, number];
+    readonly psuSata1: readonly [15.7, 12.5, number];
+    readonly psuSata2: readonly [14.7, 12.5, number];
+};
 export declare const grade8CaseLayout: SceneLayout;
 /** The case scenario's computer, built and switched on, with markers for the data path and a smartphone on the desk. */
 export declare const grade8LabLayout: SceneLayout;

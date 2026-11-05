@@ -13,10 +13,17 @@ export interface SlotPose {
   readonly view?: Vec3
   /** For a cable plug: the point the cable comes from (the power supply, the disk). A tube joins them. */
   readonly cableFrom?: Vec3
+  /**
+   * Points the cable passes on its way from the plug to where it comes from: through the grommets in the
+   * board tray and behind it, so it does not cross the graphics card.
+   */
+  readonly via?: ReadonlyArray<Vec3>
   /** The same, by the kind of plug, for a socket several devices may use: a USB port for the keyboard or the mouse. */
   readonly cablesFrom?: Readonly<Partial<Record<PartKind, Vec3>>>
   /** Turn of a plug around the way it goes in, in radians: a USB plug stands upright in an upright socket. */
   readonly roll?: number
+  /** Tilt of a plug around x, in radians: π/2 lays a plug made to go in from above on its side, going in towards -z. */
+  readonly pitch?: number
   /** Shrink the placed part to fit the area, as a big device in a sorting basket. */
   /**
    * A cover over other slots (the case's side panel over the whole inside): it takes the pointer only while
@@ -163,7 +170,11 @@ export const BOARD_CONNECTORS = {
   eps8: [-6.5, -14.8],
   sata: [11.4, 7.5],
   pcieX16: [-3.3, 2.9],
-  pcieX1: [-6.6, 5.0]
+  pcieX1: [-6.6, 5.0],
+  fPanel: [10.6, 14.6],
+  hdAudio: [-5.4, 14.6],
+  usb3: [11.5, 5.3],
+  chaFan: [-6.4, -1.2]
 } as const satisfies Record<string, readonly [number, number]>
 
 /** The board's mounting holes, x and z: the case has a brass standoff under each. */
@@ -258,7 +269,7 @@ export const BOARD_TURN_IN_CASE = 3
 export const onBoard = (x: number, y: number, z: number): Vec3 => [BOARD_IN_CASE[0] + z, BOARD_IN_CASE[1] + y, BOARD_IN_CASE[2] - x]
 
 const PSU_AT: Vec3 = [16.2, CASE_FLOOR, 14.4]
-const HDD_AT: Vec3 = [15, CASE_FLOOR, -8]
+const HDD_AT: Vec3 = [16.2, CASE_FLOOR, -8]
 /** The slot for the graphics card: card fingers sit 0.8 cm deep in the PCIe slot. */
 const pcie = (at: readonly [number, number]): Vec3 => onBoard(at[0], BOARD_TOP + 1.1 - 0.8, at[1])
 const GPU_AT = pcie(BOARD_CONNECTORS.pcieX16)
@@ -268,14 +279,53 @@ export const GPU_HDMI_LOCAL: Vec3 = [1.75, 2.0, 9.05]
 /** The disk's connectors on its back end: data and power. */
 export const HDD_DATA_LOCAL: Vec3 = [-2.6, 1.3, 7.4]
 export const HDD_POWER_LOCAL: Vec3 = [1.0, 1.3, 7.4]
-/** Where the power supply's cables come out: the middle of its side that faces the inside of the case. */
-const PSU_CABLES: Vec3 = [PSU_AT[0] - 4.6, CASE_FLOOR + 4, PSU_AT[2] - 4]
+/**
+ * The power supply's front (-z) faces the inside of the case. The cables built into it (board and processor)
+ * come out of a hole low on that face; the removable ones go into red sockets above it: two PCI-E, two HDD/SATA.
+ */
+const PSU_FACE = PSU_AT[2] - 7.8
+const PSU_HOLE: Vec3 = [15.45, 3.25, PSU_FACE]
+export const PSU_SOCKETS = {
+  psuPcie1: [15.8, 10.05, PSU_FACE],
+  psuPcie2: [14.7, 10.05, PSU_FACE],
+  psuSata1: [15.7, 12.5, PSU_FACE],
+  psuSata2: [14.7, 12.5, PSU_FACE]
+} as const satisfies Record<string, Vec3>
+/** Below the board tray: cables run behind it, out of sight, from one grommet to another. */
+const BEHIND_TRAY = -0.6
+/** The grommet beside the power supply, between it and the disk. */
+const PSU_GROMMET: ReadonlyArray<Vec3> = [
+  [15.2, 2.6, PSU_FACE - 1.6],
+  [13.4, 1.4, PSU_FACE - 3],
+  [13.4, BEHIND_TRAY, PSU_FACE - 3.4]
+]
+/** A cable from a board connector back to the power supply hole: down a grommet next to the connector, behind the tray. */
+const behindTray = (grommet: readonly [number, number]): ReadonlyArray<Vec3> => [
+  [grommet[0], CASE_FLOOR + 1.6, grommet[1]],
+  [grommet[0], BEHIND_TRAY, grommet[1]],
+  ...[...PSU_GROMMET].reverse()
+]
 
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 const BACK: Vec3 = [0, 0.45, 1]
 /** Cables of the desk devices run from the back of the case down to the desk. */
 const toDesk = (at: Vec3): Vec3 => [at[0], 0.3, at[2] + 10]
 const UPRIGHT = Math.PI / 2
+/** A header on the board: its plug goes in from above, its thin cable runs to the case's front panel or fan. */
+const header = (at: readonly [number, number], area: Vec3, cableFrom: Vec3, via?: ReadonlyArray<Vec3>): SlotPose => ({
+  at: onBoard(at[0], BOARD_TOP + 0.9, at[1]),
+  area,
+  cableFrom,
+  ...(via ? { via } : {}),
+  view: [0.2, 1, -0.5]
+})
+/** A red socket on the power supply: the plug goes in along +z, its cable leaves towards the inside of the case. */
+const psuSocket = (at: Vec3): SlotPose => ({ at, area: [1.3, 2.2, 1.6], view: [0.4, 0.6, -1] })
+/** The front panel of the case: its wires come from behind the tray, through the grommet in front of the board. */
+const FRONT_WIRES: Vec3 = [10.8, BEHIND_TRAY, -5.6]
+/** The rear fan of the case: its cable hangs from the fan's hub. */
+const REAR_FAN: Vec3 = [-13.5, 8, 21]
+
 const rearPort = (port: readonly [number, number]): SlotPose => {
   const at = onBoard(REAR_FACE_X, BOARD_TOP + port[1], port[0])
   return { at, area: [1.1, 1.6, 1.4], view: BACK, cableFrom: toDesk(at), roll: UPRIGHT }
@@ -286,22 +336,60 @@ export const grade8CaseLayout: SceneLayout = {
   benchPart: "case",
   holdHeight: CASE_SIZE[1] + 4,
   overview: 100,
-  power: { control: "power", on: "on" },
+  power: { control: "power", on: "on", requires: { psuSwitch: "on" } },
   slots: {
     psuBay: { at: PSU_AT, area: [8.8, 15, 14.2] },
     boardTray: { at: BOARD_IN_CASE, area: [30.7, 3, 24.6], cover: true },
     pcieX16: { at: GPU_AT, area: [1.6, 3, 9.4], view: [0.55, 0.8, 0.45] },
     pcieX1: { at: pcie(BOARD_CONNECTORS.pcieX1), area: [1.4, 2.4, 5.4], view: [0.55, 0.8, 0.45] },
     hddBay: { at: HDD_AT, area: [10.6, 3.4, 15] },
-    atxPort: { at: onBoard(BOARD_CONNECTORS.atx24[0], BOARD_TOP + 1.6, BOARD_CONNECTORS.atx24[1]), area: [5.8, 2.4, 1.6], cableFrom: PSU_CABLES },
-    cpuPowerPort: { at: onBoard(BOARD_CONNECTORS.eps8[0], BOARD_TOP + 1.2, BOARD_CONNECTORS.eps8[1]), area: [2.4, 2.2, 2.4], cableFrom: PSU_CABLES },
-    gpuPowerPort: { at: add(GPU_AT, GPU_POWER_LOCAL), area: [2.4, 2.2, 2.4], cableFrom: PSU_CABLES, view: [0.3, 1, 0.5] },
-    hddPowerPort: { at: add(HDD_AT, HDD_POWER_LOCAL), area: [2.6, 1.8, 1.8], cableFrom: PSU_CABLES },
+    atxPort: {
+      at: onBoard(BOARD_CONNECTORS.atx24[0], BOARD_TOP + 1.6, BOARD_CONNECTORS.atx24[1]),
+      area: [5.8, 2.4, 1.6],
+      cableFrom: PSU_HOLE,
+      // round the board's front edge and behind the tray, never across the graphics card
+      via: behindTray([-9.35, -5.4])
+    },
+    cpuPowerPort: {
+      at: onBoard(BOARD_CONNECTORS.eps8[0], BOARD_TOP + 1.2, BOARD_CONNECTORS.eps8[1]),
+      area: [2.4, 2.2, 2.4],
+      cableFrom: PSU_HOLE,
+      // through the grommet above the board's top edge
+      via: behindTray([-20.4, 15.4])
+    },
+    gpuPowerPort: {
+      at: add(GPU_AT, GPU_POWER_LOCAL),
+      area: [2.4, 2.2, 2.4],
+      cableFrom: [...PSU_SOCKETS.psuPcie1],
+      via: [add(GPU_AT, [5, 15.5, -6.6])],
+      view: [0.3, 1, 0.5]
+    },
+    hddPowerPort: {
+      at: add(HDD_AT, HDD_POWER_LOCAL),
+      area: [2.6, 1.8, 1.8],
+      cableFrom: [...PSU_SOCKETS.psuSata1],
+      via: [[16.2, 6, PSU_FACE - 3]]
+    },
+    // the board's SATA ports are right-angled: they face its edge, so the plug goes in sideways, not from above
     sataPort: {
-      at: onBoard(BOARD_CONNECTORS.sata[0], BOARD_TOP + 0.9, BOARD_CONNECTORS.sata[1]),
+      at: onBoard(BOARD_CONNECTORS.sata[0] + 0.8, BOARD_TOP + 0.7, BOARD_CONNECTORS.sata[1]),
       area: [1.8, 1.8, 1.8],
+      pitch: -Math.PI / 2,
       cableFrom: add(HDD_AT, HDD_DATA_LOCAL)
     },
+    hddDataPort: { at: add(HDD_AT, HDD_DATA_LOCAL), area: [1.8, 1.8, 1.8], view: [0.2, 0.8, 1], pitch: Math.PI / 2, cableFrom: [10, CASE_FLOOR + 0.4, -1] },
+    psuPcie1: psuSocket([...PSU_SOCKETS.psuPcie1]),
+    psuPcie2: psuSocket([...PSU_SOCKETS.psuPcie2]),
+    psuSata1: psuSocket([...PSU_SOCKETS.psuSata1]),
+    psuSata2: psuSocket([...PSU_SOCKETS.psuSata2]),
+    fPanel: header(BOARD_CONNECTORS.fPanel, [2, 1.6, 1.4], FRONT_WIRES, [[10.6, CASE_FLOOR + 1.4, -5]]),
+    // along the board's bottom edge, beside the power supply, to the front
+    hdAudio: header(BOARD_CONNECTORS.hdAudio, [2, 1.6, 1.4], FRONT_WIRES, [
+      [11.4, CASE_FLOOR + 2.2, 10],
+      [11.4, CASE_FLOOR + 1.4, -4.5]
+    ]),
+    usb3Header: header(BOARD_CONNECTORS.usb3, [2.6, 1.6, 1.8], [1, BEHIND_TRAY, -6], [[1, CASE_FLOOR + 1.6, -5]]),
+    chaFan: header(BOARD_CONNECTORS.chaFan, [1.6, 1.6, 1.4], REAR_FAN, [[-6, CASE_FLOOR + 4, 18]]),
     caseSide: { at: [0, CASE_SIZE[1], 0], area: [CASE_SIZE[0], 1.2, CASE_SIZE[2]], cover: true },
     gpuHdmi: {
       at: add(GPU_AT, GPU_HDMI_LOCAL),
@@ -317,7 +405,11 @@ export const grade8CaseLayout: SceneLayout = {
     usb4: rearPort(REAR_PORTS.usb4)
   },
   finale: { at: [0, 16, -24], distance: 110, view: [0.25, 0.55, 1] },
-  buttons: [{ control: "power", at: [-CASE_SIZE[0] / 2 - 0.05, 10.5, -12], normal: [-1, 0, 0] }],
+  buttons: [
+    { control: "power", at: [-CASE_SIZE[0] / 2 - 0.05, 10.5, -12], normal: [-1, 0, 0] },
+    // the switch on the back of the power supply, beside its mains socket
+    { control: "psuSwitch", at: [14.6, 6.2, 22.4], normal: [0, 0, 1], size: 0.7 }
+  ],
   props: [
     { kind: "monitor", at: [0, 0, -46] },
     { kind: "keyboard", at: [0, 0, -31] },
@@ -460,6 +552,7 @@ export const grade8FaultLayout: SceneLayout = {
   power: {
     control: "power",
     on: "on",
+    requires: { psuSwitch: "on" },
     needs: [
       { slot: "cpuPowerPort", screen: "dark" },
       { slot: "gpuHdmi", screen: "dark" },

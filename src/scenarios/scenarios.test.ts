@@ -96,7 +96,25 @@ describe("grade 8 case", () => {
   test("the graphics card's power cable in the CPU socket is a mistake that tells the two apart", () => {
     const outcome = apply(grade8Case, before("atx"), { type: "place", part: "pcie", slot: "cpuPowerPort", turn: 0 })
     expect(outcome.result).toBe("mistake")
-    if (outcome.result === "mistake") expect(outcome.message).toContain("CPU і PCIe")
+    if (outcome.result === "mistake") expect(outcome.message).toContain("CPU — біля процесора")
+  })
+
+  test("a cable's second end goes in only after its first end", () => {
+    const early = apply(grade8Case, before("atx"), { type: "place", part: "pcieEnd", slot: "psuPcie1", turn: 0 })
+    expect(early.result).toBe("ignored")
+    const first = apply(grade8Case, before("atx"), { type: "place", part: "pcie", slot: "gpuPowerPort", turn: 0 }).state
+    expect(apply(grade8Case, first, { type: "place", part: "pcieEnd", slot: "psuPcie2", turn: 0 }).result).toBe("ok")
+  })
+
+  test("the PCIe end in a SATA socket of the power supply is a mistake", () => {
+    const first = apply(grade8Case, before("atx"), { type: "place", part: "pcie", slot: "gpuPowerPort", turn: 0 }).state
+    expect(apply(grade8Case, first, { type: "place", part: "pcieEnd", slot: "psuSata1", turn: 0 }).result).toBe("mistake")
+  })
+
+  test("the computer is switched on at the power supply before its button", () => {
+    const steps = grade8Case.steps.map((s) => s.id)
+    expect(steps.indexOf("psuSwitch")).toBe(steps.indexOf("power") - 1)
+    expect(steps).toContain("front")
   })
 
   test("the monitor on the board's HDMI is a mistake once a graphics card is in", () => {
@@ -180,7 +198,7 @@ describe("grade 8 lab", () => {
 
   test("starts with the whole computer built and switched on", () => {
     const start = startState(grade8Lab)
-    expect(Object.keys(start.placed)).toHaveLength(13)
+    expect(Object.keys(start.placed)).toHaveLength(20)
     expect(start.controls.power).toBe("on")
   })
 

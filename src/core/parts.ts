@@ -30,6 +30,10 @@ export type PartKind =
   | "monitorCable"
   | "keyboardCable"
   | "mouseCable"
+  | "psuPlug"
+  | "frontPanelCable"
+  | "frontAudioCable"
+  | "frontUsbCable"
 
 /** Where a part keeps data: until power off (`volatile`) or for a long time (`persistent`). */
 export type MemoryKind = "volatile" | "persistent"
@@ -52,6 +56,11 @@ export interface Part {
   /** One or two short sentences on what the part does. Shown when the student inspects it. */
   readonly role: string
   readonly props?: PartProps
+  /**
+   * The other end of a cable: the id of the cable whose second end this is. It comes into the hand once
+   * that cable's first end is in: a PCIe cable goes into the graphics card, then into the power supply.
+   */
+  readonly end?: string
 }
 
 /** Quarter turns of a part around its vertical axis: 0, 1, 2 or 3. */

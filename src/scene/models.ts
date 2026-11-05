@@ -12,11 +12,13 @@ import {
   graphicsCard,
   hardDisk,
   hdmiPlug,
+  headerPlug,
   keyboard,
   monitor,
   mouse,
   powerStrip,
   powerSupply,
+  psuPlug,
   printer,
   sataDataPlug,
   sataPowerPlug,
@@ -85,7 +87,11 @@ export const MODELLED: ReadonlySet<PartKind> = new Set<PartKind>([
   "flashDrive",
   "monitorCable",
   "keyboardCable",
-  "mouseCable"
+  "mouseCable",
+  "psuPlug",
+  "frontPanelCable",
+  "frontAudioCable",
+  "frontUsbCable"
 ])
 
 /**
@@ -172,6 +178,14 @@ const codeModel = (kind: PartKind, placed: boolean): Group => {
       return shadowed(sataDataPlug())
     case "sidePanel":
       return realCaseActive() ? fitToRealCase(sidePanel()) : sidePanel()
+    case "psuPlug":
+      return shadowed(psuPlug())
+    case "frontPanelCable":
+      return shadowed(headerPlug("panel"))
+    case "frontAudioCable":
+      return shadowed(headerPlug("audio"))
+    case "frontUsbCable":
+      return shadowed(headerPlug("usb"))
     case "monitorCable":
       return shadowed(hdmiPlug())
     case "keyboardCable":
@@ -220,6 +234,10 @@ const CABLES: Partial<Record<PartKind, { readonly r: number; readonly color: str
   gpuPowerCable: { r: 0.32, color: "#141518" },
   sataPowerCable: { r: 0.22, color: "#141518" },
   sataDataCable: { r: 0.14, color: "#c0392b" },
+  fanCable: { r: 0.12, color: "#141518" },
+  frontPanelCable: { r: 0.16, color: "#2b2d31" },
+  frontAudioCable: { r: 0.16, color: "#141518" },
+  frontUsbCable: { r: 0.3, color: "#1d3f8f" },
   monitorCable: { r: 0.3, color: "#1b1d21" },
   keyboardCable: { r: 0.2, color: "#3e434a" },
   mouseCable: { r: 0.18, color: "#1b1d21" }
@@ -228,26 +246,48 @@ const CABLES: Partial<Record<PartKind, { readonly r: number; readonly color: str
 /** How far a cable must go down to count as running to the desk. */
 const DROP = 12
 
-/** A cable from a placed plug to where it comes from, sagging a little on the way. */
-const cableTube = (plug: Group, kind: PartKind, to: Vector3): Mesh | null => {
-  const look = CABLES[kind]
+/** Where a plug's cable leaves it, and a point a little further along, in the plug's parent's coordinates. */
+export interface CableEnd {
+  readonly start: Vector3
+  readonly lead: Vector3
+}
+
+const cableEnd = (plug: Group): CableEnd | null => {
   const out = plug.userData.cableOut
   const dir = plug.userData.cableDir
-  if (!look || !(out instanceof Vector3) || !(dir instanceof Vector3)) return null
+  if (!(out instanceof Vector3) || !(dir instanceof Vector3)) return null
   plug.updateMatrix()
   const start = out.clone().applyMatrix4(plug.matrix)
   const lead = start.clone().add(dir.clone().transformDirection(plug.matrix).multiplyScalar(2.5))
-  // a cable down to a device on the desk hangs behind the system unit and runs along the desk;
-  // inside the case it arcs over the parts
-  const toDesk = start.y - to.y > DROP
-  // it hangs down on the side the plug faces: behind the system unit, whichever way that is
-  const away = new Vector3(lead.x - start.x, 0, lead.z - start.z)
-  if (away.lengthSq() > 0.01) away.setLength(3)
-  const mid = toDesk
-    ? new Vector3(lead.x + away.x, to.y + look.r, lead.z + away.z)
-    : new Vector3((lead.x + to.x) / 2, Math.max(start.y, to.y) + 2, (lead.z + to.z) / 2)
-  const points = toDesk ? [start, lead, mid, new Vector3((mid.x + to.x) / 2, to.y + look.r, (mid.z + to.z) / 2), to] : [start, lead, mid, to]
-  const tube = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 64, look.r, 10), mat(look.color, { rough: 0.7 }))
+  return { start, lead }
+}
+
+/**
+ * A cable from a placed plug to where it comes from, sagging a little on the way. With `via` it passes those
+ * points (the grommets of the board tray); with `other` it ends in the plug on its other end.
+ */
+const cableTube = (plug: Group, kind: PartKind, to: Vector3, via: ReadonlyArray<Vector3>, other: CableEnd | null): Mesh | null => {
+  const look = CABLES[kind]
+  const end = cableEnd(plug)
+  if (!look || !end) return null
+  const { start, lead } = end
+  const tail = other ? [other.lead, other.start] : [to]
+  const target = tail[0] ?? to
+  let points: Vector3[]
+  if (via.length > 0) points = [start, lead, ...via, ...tail]
+  else if (start.y - to.y > DROP && !other) {
+    // a cable down to a device on the desk hangs behind the system unit and runs along the desk;
+    // it hangs down on the side the plug faces: behind the system unit, whichever way that is
+    const away = new Vector3(lead.x - start.x, 0, lead.z - start.z)
+    if (away.lengthSq() > 0.01) away.setLength(3)
+    const mid = new Vector3(lead.x + away.x, to.y + look.r, lead.z + away.z)
+    points = [start, lead, mid, new Vector3((mid.x + to.x) / 2, to.y + look.r, (mid.z + to.z) / 2), to]
+  } else {
+    // inside the case it arcs over the parts
+    const mid = new Vector3((lead.x + target.x) / 2, Math.max(start.y, target.y) + 2, (lead.z + target.z) / 2)
+    points = [start, lead, mid, ...tail]
+  }
+  const tube = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 96, look.r, 10), mat(look.color, { rough: 0.7 }))
   tube.castShadow = true
   return tube
 }
@@ -259,18 +299,32 @@ const fitInto = (model: Group, area: SlotPose["area"]): void => {
   model.scale.setScalar(k)
 }
 
-/** A part as it stands in its slot: moved there, turned, rolled, scaled, with its cable when it has one. */
-export const placedModel = (kind: PartKind, pose: SlotPose, turn: number): Group => {
+const posed = (kind: PartKind, pose: SlotPose, turn: number): Group => {
   const model = buildModel(kind, true)
   model.position.set(...pose.at)
-  model.rotation.set(0, (-turn * Math.PI) / 2 + (pose.yaw ?? 0), pose.roll ?? 0, "YXZ")
+  model.rotation.set(pose.pitch ?? 0, (-turn * Math.PI) / 2 + (pose.yaw ?? 0), pose.roll ?? 0, "YXZ")
   if (pose.fit) fitInto(model, pose.area)
+  return model
+}
+
+/** Where the cable leaves a plug standing in a slot: for drawing a cable that ends in it. */
+export const plugEnd = (kind: PartKind, pose: SlotPose, turn: number): CableEnd | null => cableEnd(posed(kind, pose, turn))
+
+/**
+ * A part as it stands in its slot: moved there, turned, rolled, scaled, with its cable when it has one.
+ * `cable`: "own" draws the cable to where the pose says it comes from; a cable end draws it to the plug on
+ * the cable's other end; "none" draws no cable (the other end's cable is drawn with that end).
+ */
+export const placedModel = (kind: PartKind, pose: SlotPose, turn: number, cable: CableEnd | "own" | "none" = "own"): Group => {
+  const model = posed(kind, pose, turn)
   const g = new Group()
   g.add(model)
   const from = pose.cablesFrom?.[kind] ?? pose.cableFrom
-  if (from) {
-    const cable = cableTube(model, kind, new Vector3(...from))
-    if (cable) g.add(cable)
+  if (cable !== "none" && (from || cable !== "own")) {
+    const other = cable === "own" ? null : cable
+    const via = (pose.via ?? []).map((v) => new Vector3(...v))
+    const tube = cableTube(model, kind, new Vector3(...(from ?? [0, 0, 0])), via, other)
+    if (tube) g.add(tube)
   }
   return g
 }
@@ -282,7 +336,7 @@ export const placedModel = (kind: PartKind, pose: SlotPose, turn: number): Group
 export const systemUnit = (): Group => {
   const inside = new Group()
   inside.add(buildModel("case", true))
-  const skip = new Set(["gpu", "pcie", "monitor", "keyboard", "mouse"])
+  const skip = new Set(["gpu", "pcie", "pcieEnd", "monitor", "keyboard", "mouse"])
   for (const [slot, part] of Object.entries(SOLVED_CASE)) {
     const kind = grade8Case.parts.find((p) => p.id === part)?.kind
     const pose = grade8CaseLayout.slots[slot]

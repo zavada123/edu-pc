@@ -122,15 +122,24 @@ export const Tray = ({
 export const HeldBar = ({
   part,
   onTurn,
-  onPutBack
+  onPutBack,
+  needsTurn = false
 }: {
   part: Part
   onTurn: (by: 1 | -1) => void
   onPutBack: () => void
+  /** The target slot takes the part one way only: say how to turn it. */
+  needsTurn?: boolean
 }) => (
   <div className="edu-pc-held" role="group" aria-label="Деталь у руці">
     <span className="edu-pc-held-name">
       У руці: <b>{part.name}</b>. Натисни на місце, куди її поставити.
+      {needsTurn && (
+        <span className="edu-pc-held-turn">
+          {" "}
+          Стає лише одним боком: повертай її кнопками ⟲ ⟳ справа або клавішами Q і E.
+        </span>
+      )}
     </span>
     <button type="button" onClick={() => onTurn(-1)} aria-label="Повернути проти годинникової стрілки (Q)">
       ⟲

@@ -2,7 +2,9 @@
 export const MESSAGES = {
   wrongKind: (part: string, slot: string) => `«${part}» не підходить до місця «${slot}». Подивись на форму роз'єму.`,
   wrongSlot: (part: string, slot: string) => `«${part}» вставляється в «${slot}», але зараз потрібне інше місце. Перечитай пояснення кроку.`,
-  wrongTurn: (part: string) => `«${part}» повернуто не тим боком. Поверни деталь і спробуй ще раз.`,
+  wrongTurn: (part: string) =>
+    `«${part}» повернуто не тим боком. Поверни деталь кнопками ⟲ ⟳ під назвою деталі або клавішами Q і E, тоді спробуй ще раз.`,
+  firstEnd: (cable: string) => `Спершу під'єднай перший кінець: «${cable}».`,
   notReady: (control: string) => `Спершу підготуй: «${control}».`,
   wrongAnswer: "Ще ні. Перечитай пояснення кроку й спробуй іншу відповідь.",
   slotTaken: (slot: string) => `На місці «${slot}» уже є деталь.`,

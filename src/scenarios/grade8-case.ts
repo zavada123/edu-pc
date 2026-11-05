@@ -53,31 +53,76 @@ export const grade8Case: Scenario = {
       id: "atx",
       kind: "atxCable",
       name: "Кабель живлення плати (24 контакти)",
-      role: "Найширший кабель блока живлення. Живить материнську плату."
+      role: "Найширший кабель блока живлення. Живить материнську плату. У цього блока він вбудований: виходить з отвору внизу, тож під'єднують лише кінець до плати."
     },
     {
       id: "eps",
       kind: "cpuPowerCable",
       name: "Кабель живлення процесора (CPU, 8 контактів)",
-      role: "Окремо живить процесор. Під'єднується до роз'єму у верхньому куті плати."
+      role: "Окремо живить процесор. Під'єднується до роз'єму у верхньому куті плати. Як і кабель плати, вбудований у блок живлення."
     },
     {
       id: "pcie",
       kind: "gpuPowerCable",
       name: "Кабель живлення відеокарти (PCIe, 8 контактів)",
-      role: "Додатково живить відеокарту. Схожий на кабель процесора, але роз'єм у нього інший."
+      role: "Додатково живить відеокарту. Знімний: один кінець — у відеокарту, другий — у червоне гніздо PCI-E на блоці живлення."
+    },
+    {
+      id: "pcieEnd",
+      kind: "psuPlug",
+      name: "Кабель PCIe: кінець до блока живлення",
+      role: "Другий кінець кабелю відеокарти. Іде в червоне гніздо з написом PCI-E на блоці живлення.",
+      end: "pcie"
     },
     {
       id: "sataPower",
       kind: "sataPowerCable",
       name: "Кабель живлення SATA",
-      role: "Плаский кабель від блока живлення до диска."
+      role: "Плаский знімний кабель: один кінець — у диск, другий — у червоне гніздо HDD/SATA на блоці живлення."
+    },
+    {
+      id: "sataPowerEnd",
+      kind: "psuPlug",
+      name: "Кабель SATA: кінець до блока живлення",
+      role: "Другий кінець кабелю живлення диска. Іде в червоне гніздо з написом HDD/SATA на блоці живлення.",
+      end: "sataPower"
     },
     {
       id: "sataData",
       kind: "sataDataCable",
       name: "Кабель даних SATA",
-      role: "Тонкий кабель, яким диск обмінюється даними з материнською платою."
+      role: "Тонкий червоний кабель, яким диск обмінюється даними з материнською платою: один кінець — у плату, другий — у диск."
+    },
+    {
+      id: "sataDataEnd",
+      kind: "sataDataCable",
+      name: "Кабель даних SATA: кінець до диска",
+      role: "Другий кінець кабелю даних. Іде у вузьке гніздо на задньому торці диска, поруч із гніздом живлення.",
+      end: "sataData"
+    },
+    {
+      id: "frontPanel",
+      kind: "frontPanelCable",
+      name: "Кабель кнопки живлення корпусу",
+      role: "Тонкі дроти від кнопок і лампочок на корпусі. Без них кнопка живлення не увімкне комп'ютер: її натискання передається платі через роз'єм F_PANEL."
+    },
+    {
+      id: "frontAudio",
+      kind: "frontAudioCable",
+      name: "Кабель аудіо передньої панелі",
+      role: "Від гнізд для навушників і мікрофона на корпусі до роз'єму HD_AUDIO на платі."
+    },
+    {
+      id: "frontUsb",
+      kind: "frontUsbCable",
+      name: "Кабель USB передньої панелі",
+      role: "Від гнізд USB на корпусі до роз'єму USB 3.0 на платі. Буває ще USB-C, але на цьому корпусі його немає."
+    },
+    {
+      id: "caseFan",
+      kind: "fanCable",
+      name: "Кабель вентилятора корпусу",
+      role: "Вентилятори корпусу женуть повітря крізь корпус. Їхній кабель під'єднують до роз'єму CHA_FAN на платі, і плата керує їхньою швидкістю."
     },
     {
       id: "panel",
@@ -115,6 +160,15 @@ export const grade8Case: Scenario = {
     { id: "gpuPowerPort", label: "Роз'єм живлення відеокарти", accepts: ["cpuPowerCable", "gpuPowerCable"] },
     { id: "hddPowerPort", label: "Роз'єм живлення диска", accepts: ["sataPowerCable"] },
     { id: "sataPort", label: "Роз'єм SATA на платі", accepts: ["sataDataCable"] },
+    { id: "hddDataPort", label: "Гніздо даних SATA на диску", accepts: ["sataDataCable"] },
+    { id: "psuPcie1", label: "Гніздо PCI-E на блоці живлення", tag: "PCI-E", accepts: ["psuPlug"] },
+    { id: "psuPcie2", label: "Гніздо PCI-E на блоці живлення", tag: "PCI-E", accepts: ["psuPlug"] },
+    { id: "psuSata1", label: "Гніздо HDD/SATA на блоці живлення", tag: "HDD/SATA", accepts: ["psuPlug"] },
+    { id: "psuSata2", label: "Гніздо HDD/SATA на блоці живлення", tag: "HDD/SATA", accepts: ["psuPlug"] },
+    { id: "fPanel", label: "Роз'єм кнопок корпусу (F_PANEL)", tag: "F_PANEL", accepts: ["frontPanelCable", "frontAudioCable"] },
+    { id: "hdAudio", label: "Роз'єм аудіо передньої панелі (HD_AUDIO)", tag: "HD_AUDIO", accepts: ["frontPanelCable", "frontAudioCable"] },
+    { id: "usb3Header", label: "Роз'єм USB 3.0 для корпусу", tag: "USB 3.0", accepts: ["frontUsbCable"] },
+    { id: "chaFan", label: "Роз'єм вентилятора корпусу (CHA_FAN)", tag: "CHA_FAN", accepts: ["fanCable"] },
     { id: "caseSide", label: "Бік корпусу", accepts: ["sidePanel"] },
     { id: "gpuHdmi", label: "Гніздо HDMI на відеокарті", accepts: ["monitorCable"] },
     { id: "boardHdmi", label: "Гніздо HDMI на платі", accepts: ["monitorCable"] },
@@ -123,7 +177,10 @@ export const grade8Case: Scenario = {
     { id: "usb3", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] },
     { id: "usb4", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] }
   ],
-  controls: [{ id: "power", label: "Кнопка живлення", values: ["off", "on"] }],
+  controls: [
+    { id: "power", label: "Кнопка живлення", values: ["off", "on"] },
+    { id: "psuSwitch", label: "Вимикач на блоці живлення", values: ["off", "on"] }
+  ],
   steps: [
     {
       id: "look",
@@ -198,11 +255,31 @@ export const grade8Case: Scenario = {
         atx: ["atxPort"],
         eps: ["cpuPowerPort"],
         pcie: ["gpuPowerPort"],
+        pcieEnd: ["psuPcie1", "psuPcie2"],
         sataPower: ["hddPowerPort"],
-        sataData: ["sataPort"]
+        sataPowerEnd: ["psuSata1", "psuSata2"],
+        sataData: ["sataPort"],
+        sataDataEnd: ["hddDataPort"]
       },
       messages: {
-        wrongSlot: "Кабелі CPU і PCIe схожі, але не однакові. CPU під'єднують біля процесора, PCIe — до відеокарти."
+        wrongSlot:
+          "Схожі роз'єми, але не однакові. CPU — біля процесора, PCIe — у відеокарту і в гніздо PCI-E на блоці, живлення диска — у гніздо HDD/SATA."
+      }
+    },
+    {
+      id: "front",
+      kind: "place",
+      title: "Під'єднай корпус до плати",
+      explain:
+        "Кнопка, гнізда USB і навушників на корпусі та його вентилятори працюють через плату. Тонкі дроти кнопок — у F_PANEL у нижньому куті плати, аудіо — у HD_AUDIO, USB — у роз'єм USB 3.0 на правому краю, вентилятор — у CHA_FAN.",
+      question: {
+        text: "Навіщо під'єднувати кнопку корпусу до плати?",
+        right: "Плата дізнається про натискання і вмикає комп'ютер",
+        wrong: ["Кнопка живить плату струмом", "Щоб кнопка світилася, а вмикає комп'ютер блок живлення"]
+      },
+      targets: { frontPanel: ["fPanel"], frontAudio: ["hdAudio"], frontUsb: ["usb3Header"], caseFan: ["chaFan"] },
+      messages: {
+        wrongSlot: "Подивись на підпис біля роз'єму: кнопки — F_PANEL, навушники — HD_AUDIO."
       }
     },
     {
@@ -228,6 +305,15 @@ export const grade8Case: Scenario = {
       messages: {
         wrongSlot: "Відеокарта вже стоїть, тож зображення створює вона. Монітор під'єднують до гнізда на відеокарті, нижче."
       }
+    },
+    {
+      id: "psuSwitch",
+      kind: "set",
+      title: "Увімкни блок живлення",
+      explain:
+        "На задній стінці блока живлення є вимикач. Поки він вимкнений, кнопка на корпусі нічого не зробить. Перемкни його в положення «I».",
+      control: "psuSwitch",
+      value: "on"
     },
     {
       id: "power",
