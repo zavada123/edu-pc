@@ -144,13 +144,15 @@ export const HeldBar = ({
   </div>
 )
 
+/** What a part is and what it does. It takes the step card's place until it is closed, so only one message is on screen. */
 export const PartInfo = ({ part, onClose }: { part: Part; onClose: () => void }) => (
-  <aside className="edu-pc-info" aria-live="polite">
-    <button type="button" className="edu-pc-info-close" onClick={onClose} aria-label="Закрити">
-      ×
-    </button>
+  <aside className="edu-pc-info" aria-live="polite" aria-label={`Деталь: ${part.name}`}>
+    <p className="edu-pc-info-kind">Деталь</p>
     <h3>{part.name}</h3>
     <p>{part.role}</p>
+    <button type="button" className="edu-pc-info-ok" onClick={onClose}>
+      Зрозуміло
+    </button>
   </aside>
 )
 

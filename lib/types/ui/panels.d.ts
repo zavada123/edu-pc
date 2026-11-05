@@ -34,6 +34,7 @@ export declare const HeldBar: ({ part, onTurn, onPutBack }: {
     onTurn: (by: 1 | -1) => void;
     onPutBack: () => void;
 }) => import("react").JSX.Element;
+/** What a part is and what it does. It takes the step card's place until it is closed, so only one message is on screen. */
 export declare const PartInfo: ({ part, onClose }: {
     part: Part;
     onClose: () => void;

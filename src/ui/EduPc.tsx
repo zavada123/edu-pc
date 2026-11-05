@@ -241,10 +241,14 @@ export const EduPc = ({
           <p className="edu-pc-keys" aria-hidden="true">
             Камера: перетягни мишею або стрілки, W A S D; наблизити + і −
           </p>
-          {step && <StepCard step={step} index={state.step} total={scenario.steps.length} />}
-          {infoPart && <PartInfo part={infoPart} onClose={() => build.setInfo(null)} />}
+          {/* one message at a time: a part's card stands in for the step card until it is closed */}
+          {infoPart ? (
+            <PartInfo part={infoPart} onClose={() => build.setInfo(null)} />
+          ) : (
+            step && <StepCard step={step} index={state.step} total={scenario.steps.length} />
+          )}
           {/* a card that shows the mistake itself needs no second copy of it */}
-          <ToastLine toast={cardStep && mistakeNote ? null : build.toast} />
+          <ToastLine toast={(cardStep && mistakeNote) || infoPart ? null : build.toast} />
         </div>
       </div>
       <footer className="edu-pc-foot">
