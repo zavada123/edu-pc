@@ -9,6 +9,7 @@ import type { PartKind } from "../core/parts.ts"
  * the same part is, so a slot pose places either of them the same way.
  */
 export const MODEL_FILES: Readonly<Partial<Record<PartKind, string>>> = {
+  motherboard: "motherboard.glb",
   cpu: "cpu.glb",
   ram: "ram.glb",
   m2ssd: "m2ssd.glb",

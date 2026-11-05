@@ -6,7 +6,7 @@ simplified to a few thousand triangles, textures shrunk to 512 px (WebP), compre
 
 | File | Model | Author |
 |---|---|---|
-| cpu.glb, ram.glb, m2ssd.glb | [MotherBoard + Components](https://sketchfab.com/3d-models/motherboard-components-3bc94057328243d4b341a55f59160f8a) | Daniel Cardona |
+| motherboard.glb, cpu.glb, ram.glb, m2ssd.glb | [MotherBoard + Components](https://sketchfab.com/3d-models/motherboard-components-3bc94057328243d4b341a55f59160f8a) | Daniel Cardona |
 | cooler.glb | [Cooler Master CPU Fan](https://sketchfab.com/3d-models/none-612869d86f034b859823d108a13475aa) | ImRedHawk |
 | gpu.glb | [MSI GeForce RTX 3080 Gaming X Trio](https://sketchfab.com/3d-models/none-e5356746dcec48f9868164bb9674ab9a) | meu9MM98 |
 | psu.glb | [Power supply Aerocool KCAS 500W ATX](https://sketchfab.com/3d-models/none-bfb1f77fffb0410f9ee0d0be6fb5fc88) | nofurion |

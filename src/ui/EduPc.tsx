@@ -14,8 +14,8 @@ import "./edu-pc.css"
 
 const DONE_DELAY_MS = 2600
 
-/** Parts that stand on a ready board (the case exercises bring the board with them), so their models load too. */
-const ON_BOARD = ["cpu", "cooler", "ram", "m2ssd"] as const
+/** The board and the parts on it: every exercise shows the board, built or not, so their models always load. */
+const ON_BOARD = ["motherboard", "cpu", "cooler", "ram", "m2ssd"] as const
 
 /** The current step still has to put this part somewhere else: it stands elsewhere, or nowhere yet. */
 const stillToPlace = (scenario: Scenario, state: BuildState, part: string): boolean => {

@@ -94,7 +94,8 @@ export const MODELLED: ReadonlySet<PartKind> = new Set<PartKind>([
  */
 export const buildModel = (kind: PartKind, placed: boolean): Group => {
   const code = codeModel(kind, placed)
-  const real = realModel(kind)
+  // the board's own model goes in under the parts on it (see buildBoard)
+  const real = kind === "motherboard" ? null : realModel(kind)
   return real ? standIn(real, code) : code
 }
 
