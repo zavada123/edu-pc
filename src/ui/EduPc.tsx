@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { currentStep, isDone, slotOf, type BuildState } from "../core/machine.ts"
-import type { Part } from "../core/parts.ts"
+import type { Part, PartKind } from "../core/parts.ts"
 import { report } from "../core/progress.ts"
 import type { Scenario } from "../core/scenario.ts"
 import { type Aim, focusPoint, focusStops } from "../scene/focus.ts"
 import { layouts, type SceneLayout } from "../scene/layout.ts"
+import type { ModelQuality } from "../scene/gltf.ts"
 import type { PcScene, SceneHandle } from "../scene/PcScene.ts"
 import { DoneCard, HeldBar, PartInfo, QuestionCard, SortCard, StepCard, StepList, ToastLine, Tray, UpgradeCard } from "./panels.tsx"
 import { useFullScreen } from "./fullscreen.ts"
@@ -16,6 +17,37 @@ const DONE_DELAY_MS = 2600
 
 /** The board and the parts on it: every exercise shows the board, built or not, so their models always load. */
 const ON_BOARD = ["motherboard", "cpu", "cooler", "ram", "m2ssd"] as const
+/** What a computer in its case shows: the case and the parts inside it. */
+const IN_CASE = ["case", "psu", "hdd", "gpu"] as const
+
+/** The realistic models an exercise shows: the board, its parts, the case when there is one, the devices on the desk. */
+const modelsOf = (scenario: Scenario, layout: SceneLayout): PartKind[] => [
+  ...ON_BOARD,
+  ...scenario.parts.map((p) => p.kind),
+  ...(layout.bench === "case" || layout.bench === "tower" ? IN_CASE : []),
+  ...(layout.props ?? []).flatMap((p) => (p.kind === "monitor" || p.kind === "keyboard" || p.kind === "mouse" ? [p.kind] : []))
+]
+
+/** The names of the quality levels in the switch. */
+const QUALITY_NAMES: Readonly<Record<ModelQuality, string>> = { simple: "Проста", normal: "Звичайна", high: "Висока" }
+/** Where the student's choice of graphics is kept between visits. */
+const QUALITY_KEY = "edu-pc-quality"
+
+const savedQuality = (): ModelQuality | null => {
+  try {
+    const v = window.localStorage.getItem(QUALITY_KEY)
+    return v === "simple" || v === "normal" || v === "high" ? v : null
+  } catch {
+    return null
+  }
+}
+const saveQuality = (q: ModelQuality): void => {
+  try {
+    window.localStorage.setItem(QUALITY_KEY, q)
+  } catch {
+    // private window or blocked storage: the choice lasts until the page closes
+  }
+}
 
 /** The current step still has to put this part somewhere else: it stands elsewhere, or nowhere yet. */
 const stillToPlace = (scenario: Scenario, state: BuildState, part: string): boolean => {
@@ -33,6 +65,12 @@ export interface EduPcProps extends BuildCallbacks {
   readonly hints?: boolean
   /** Fewer pixels and no antialiasing, for old school computers. */
   readonly lightGraphics?: boolean
+  /**
+   * How the parts look when the student has not picked it yet (the switch «Графіка» in the header,
+   * remembered in localStorage): `simple` (models built in code, fewer pixels), `normal` (realistic
+   * models, default) or `high` (realistic models with more detail, from `modelsUrl` + `hd/`).
+   */
+  readonly quality?: ModelQuality
   /**
    * A folder with the realistic models of real parts (the GLB files from `public/models`). Without it
    * every part is the simpler model built in code.
@@ -52,6 +90,7 @@ export const EduPc = ({
   layout,
   hints = true,
   lightGraphics = false,
+  quality: initialQuality = "normal",
   modelsUrl,
   onAction,
   onComplete,
@@ -64,6 +103,15 @@ export const EduPc = ({
   const build = useBuild(scenario, callbacks, initialState)
   const { state, step, hint, held } = build
   const [showHints, setShowHints] = useState(hints)
+  const [picked, setPicked] = useState<ModelQuality>(() => savedQuality() ?? initialQuality)
+  // without the model files there is nothing finer than the models built in code
+  const quality: ModelQuality = !modelsUrl && picked === "high" ? "normal" : picked
+  const qualities: ReadonlyArray<ModelQuality> = modelsUrl ? ["simple", "normal", "high"] : ["simple", "normal"]
+  const pickQuality = (q: ModelQuality) => {
+    setPicked(q)
+    saveQuality(q)
+  }
+  const light = lightGraphics || quality === "simple"
   const [allTags, setAllTags] = useState(false)
   const { full, toggle: toggleFull } = useFullScreen()
   const [sceneError, setSceneError] = useState<string | null>(null)
@@ -84,7 +132,7 @@ export const EduPc = ({
     import("../scene/PcScene.ts")
       .then(async (mod) => {
         // the realistic models load before the scene is made, so every part is drawn with them from the start
-        if (modelsUrl) await mod.preloadModels(modelsUrl, [...ON_BOARD, ...scenario.parts.map((p) => p.kind)])
+        await mod.preloadModels(modelsUrl ?? "", modelsOf(scenario, sceneLayout), modelsUrl ? quality : "simple")
         return mod
       })
       .then(({ PcScene }) => {
@@ -105,7 +153,7 @@ export const EduPc = ({
               if (other !== undefined) handlers.current.act({ type: "set", control, value: other })
             }
           },
-          lightGraphics
+          light
         )
         setSceneError(null)
         // the first step's camera aim waits for the scene: look again now that it is here
@@ -119,7 +167,7 @@ export const EduPc = ({
       sceneRef.current?.dispose()
       sceneRef.current = null
     }
-  }, [scenario, sceneLayout, lightGraphics, modelsUrl])
+  }, [scenario, sceneLayout, light, quality, modelsUrl])
 
   // Let the last action play out in 3D (fans spin up, the monitor lights) before the summary covers it.
   const finished = isDone(scenario, state)
@@ -194,7 +242,8 @@ export const EduPc = ({
   )
   const heldPart = held ? scenario.parts.find((p) => p.id === held.part) : undefined
   const infoPart = build.info ? scenario.parts.find((p) => p.id === build.info) : undefined
-  const question = step?.question && !state.answered.includes(step.id) ? step.question : undefined
+  // the next step's question waits while a part card is open: the student reads about the last part first
+  const question = step?.question && !state.answered.includes(step.id) && !infoPart ? step.question : undefined
 
   const pick = (part: Part) => {
     if (step?.kind === "inspect" || part.id === sceneLayout.benchPart) build.inspect(part.id)
@@ -209,6 +258,16 @@ export const EduPc = ({
           {scenario.title}
         </h1>
         <div className="edu-pc-tools">
+          <label className="edu-pc-switch" title="Проста — для старих комп'ютерів, висока — найдетальніші моделі">
+            Графіка
+            <select className="edu-pc-quality" value={quality} onChange={(e) => pickQuality(e.target.value as ModelQuality)}>
+              {qualities.map((q) => (
+                <option key={q} value={q}>
+                  {QUALITY_NAMES[q]}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="edu-pc-switch">
             <input type="checkbox" checked={allTags} onChange={(e) => setAllTags(e.target.checked)} />
             Назви гнізд

@@ -39,7 +39,7 @@ import type { Placed } from "../core/machine.ts"
 import type { PartKind, Turn } from "../core/parts.ts"
 import type { Scenario } from "../core/scenario.ts"
 import { buildBoard, buildDesk, buildLever, DESK_SIZE } from "./board.ts"
-import { buildCase, powerButton } from "./case.ts"
+import { powerButton } from "./case.ts"
 import { type Bounds, FRONT_VIEW } from "./focus.ts"
 import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
@@ -271,7 +271,7 @@ export class PcScene implements SceneHandle {
     this.bench.position.y = 0.05
     this.scene.add(this.bench)
     this.benchModel =
-      layout.bench === "case" ? buildCase() : layout.bench === "tower" ? systemUnit() : buildBoard(GRADE8_BOARD, scenario.slots, layout.slots)
+      layout.bench === "case" ? buildModel("case", true) : layout.bench === "tower" ? systemUnit() : buildBoard(GRADE8_BOARD, scenario.slots, layout.slots)
     this.benchModel.userData.part = layout.benchPart
     this.bench.add(this.benchModel)
     if (layout.lever) {
@@ -930,9 +930,11 @@ export class PcScene implements SceneHandle {
    * the one whose centre is closest to the ray, so a tap lands on the slot the student aimed at.
    */
   private slotHit(): ReturnType<Raycaster["intersectObjects"]>[number] | undefined {
-    const hits = this.ray.intersectObjects(this.areas.map((a) => a.mesh), false)
     const heldKind = this.view.held ? this.kindOf(this.view.held.part) : undefined
     const fits = (id: unknown) => this.areas.some((a) => a.id === id && heldKind !== undefined && a.accepts.includes(heldKind))
+    // a cover (the side panel's place, the board's place in the case) lets the pointer through to the slots under it unless its part is in hand
+    const open = this.areas.filter((a) => !this.layout.slots[a.id]?.cover || fits(a.id))
+    const hits = this.ray.intersectObjects(open.map((a) => a.mesh), false)
     const candidates = hits.some((h) => fits(h.object.userData.slot)) ? hits.filter((h) => fits(h.object.userData.slot)) : hits
     const centre = new Vector3()
     const off = (h: (typeof hits)[number]) => this.ray.ray.distanceToPoint(h.object.getWorldPosition(centre))

@@ -16,6 +16,11 @@ export interface SlotPose {
     /** Turn of a plug around the way it goes in, in radians: a USB plug stands upright in an upright socket. */
     readonly roll?: number;
     /** Shrink the placed part to fit the area, as a big device in a sorting basket. */
+    /**
+     * A cover over other slots (the case's side panel over the whole inside): it takes the pointer only while
+     * the part in hand fits it, so on other steps it does not hide the slots under it.
+     */
+    readonly cover?: boolean;
     readonly fit?: boolean;
     /** Turn of the placed part around the vertical, in radians: a plug in the back of the system unit, which faces away. */
     readonly yaw?: number;

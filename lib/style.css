@@ -118,6 +118,14 @@
   color: var(--pc-accent);
   font-size: 13px;
 }
+.edu-pc-quality {
+  padding: 4px 6px;
+  border: 1px solid var(--pc-line);
+  border-radius: 8px;
+  background: var(--pc-panel);
+  color: var(--pc-ink);
+  font: inherit;
+}
 .edu-pc-switch {
   display: flex;
   align-items: center;
@@ -208,6 +216,12 @@
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+/* the view takes the keyboard on every click (the camera keys): no focus ring that flashes each time
+   a part is taken from the tray and the view clicked; the camera hint in its corner says it listens */
+.edu-pc-canvas:focus,
+.edu-pc-canvas:focus-visible {
+  outline: none;
 }
 .edu-pc-card,
 .edu-pc-info {

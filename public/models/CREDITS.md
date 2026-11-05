@@ -2,7 +2,8 @@
 
 Every model here is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). They were
 changed for the simulator: turned and scaled to centimetres, with the origin at the bottom centre,
-simplified to a few thousand triangles, textures shrunk to 512 px (WebP), compressed with meshopt.
+simplified, textures shrunk to 512 px (WebP), compressed with meshopt. The `hd/` folder holds the same
+models for the «Висока» graphics: full detail and 1024–2048 px textures.
 
 | File | Model | Author |
 |---|---|---|
@@ -11,3 +12,6 @@ simplified to a few thousand triangles, textures shrunk to 512 px (WebP), compre
 | gpu.glb | [MSI GeForce RTX 3080 Gaming X Trio](https://sketchfab.com/3d-models/none-e5356746dcec48f9868164bb9674ab9a) | meu9MM98 |
 | psu.glb | [Power supply Aerocool KCAS 500W ATX](https://sketchfab.com/3d-models/none-bfb1f77fffb0410f9ee0d0be6fb5fc88) | nofurion |
 | hdd.glb | [WD Green 1TB HDD](https://sketchfab.com/3d-models/none-e9244f56e0724dd097570e29bae4b7c6) | MG990 |
+| case.glb | [Fractal Design Meshify C](https://sketchfab.com/3d-models/none-a46526af2ac84fa098edc3f01c012450) (without its glass side panel and the PSU shroud) | MUSHROOM_BUILDS |
+| monitor.glb | [Basic PC Monitors](https://sketchfab.com/3d-models/none-58a2dba70e4f4752962ee98a9d6827be) (the standard one) | sousinho |
+| keyboard.glb, mouse.glb | [Keyboard, Mouse and mouse pad](https://sketchfab.com/3d-models/none-a1c5fe0e149a486fb71bb88252ac909e) | blue-odym |

@@ -1,6 +1,7 @@
 import { type BuildState } from "../core/machine.ts";
 import type { Scenario } from "../core/scenario.ts";
 import { type SceneLayout } from "../scene/layout.ts";
+import type { ModelQuality } from "../scene/gltf.ts";
 import type { SceneHandle } from "../scene/PcScene.ts";
 import { type BuildCallbacks } from "./useBuild.ts";
 import "./tokens.css";
@@ -14,6 +15,12 @@ export interface EduPcProps extends BuildCallbacks {
     /** Fewer pixels and no antialiasing, for old school computers. */
     readonly lightGraphics?: boolean;
     /**
+     * How the parts look when the student has not picked it yet (the switch «Графіка» in the header,
+     * remembered in localStorage): `simple` (models built in code, fewer pixels), `normal` (realistic
+     * models, default) or `high` (realistic models with more detail, from `modelsUrl` + `hd/`).
+     */
+    readonly quality?: ModelQuality;
+    /**
      * A folder with the realistic models of real parts (the GLB files from `public/models`). Without it
      * every part is the simpler model built in code.
      */
@@ -26,4 +33,4 @@ export interface EduPcProps extends BuildCallbacks {
     readonly initialState?: BuildState | undefined;
 }
 /** The PC-building trainer: a 3D bench with the steps, the parts tray and the questions around it. */
-export declare const EduPc: ({ scenario, layout, hints, lightGraphics, modelsUrl, onAction, onComplete, onSceneReady, onNext, initialState }: EduPcProps) => import("react").JSX.Element;
+export declare const EduPc: ({ scenario, layout, hints, lightGraphics, quality: initialQuality, modelsUrl, onAction, onComplete, onSceneReady, onNext, initialState }: EduPcProps) => import("react").JSX.Element;
