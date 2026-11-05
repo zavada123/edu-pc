@@ -33,13 +33,29 @@ export const focusPoint = (
   }
   if (button) return [button.at, 30, [button.normal[0], button.normal[1] + 0.75, button.normal[2] + 0.35]]
   const poses = slots.map((s) => layout.slots[s]).filter((p) => p !== undefined)
-  if (poses.length === 0) return [BENCH_CENTRE, layout.overview ?? 40, FRONT_VIEW]
+  if (poses.length === 0) return wholeDesk(layout)
   const xs = poses.flatMap((p) => [p.at[0] - p.area[0] / 2, p.at[0] + p.area[0] / 2])
   const zs = poses.flatMap((p) => [p.at[2] - p.area[2] / 2, p.at[2] + p.area[2] / 2])
   const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs))
   const centre: Vec3 = [(Math.max(...xs) + Math.min(...xs)) / 2, poses[0]?.at[1] ?? 0, (Math.max(...zs) + Math.min(...zs)) / 2]
   return [centre, Math.min(Math.max(45, layout.overview ?? 0), Math.max(20, 14 + span * 1.8)), poses[0]?.view ?? FRONT_VIEW]
 }
+
+/** A look at the whole bench, and at the parts lying round it when there are any. */
+const wholeDesk = (layout: SceneLayout): Aim => {
+  const overview = layout.overview ?? 40
+  const loose = layout.loose ?? []
+  if (loose.length === 0) return [BENCH_CENTRE, overview, FRONT_VIEW]
+  // the bench itself reaches about half the overview distance round its centre
+  const reach = overview * BENCH_REACH
+  const xs = [-reach, reach, ...loose.map((l) => l.at[0])]
+  const zs = [-reach, reach, ...loose.map((l) => l.at[2])]
+  const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs))
+  const centre: Vec3 = [(Math.max(...xs) + Math.min(...xs)) / 2, 0, (Math.max(...zs) + Math.min(...zs)) / 2]
+  return [centre, Math.max(overview, span * LOOSE_LOOK), FRONT_VIEW]
+}
+const BENCH_REACH = 0.25
+const LOOSE_LOOK = 1.4
 
 /** Looks at every marker of a data path at once: from the USB port at the back to the monitor in front. */
 export const focusStops = (layout: SceneLayout, ids: ReadonlyArray<string>): Aim => {

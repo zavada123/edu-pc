@@ -140,11 +140,15 @@ export const EduPc = ({
       ? focusStops(sceneLayout, step.stops.map((s) => s.id))
       : (finished || (step?.look === "result" && !!step.question && !state.answered.includes(step.id))) && sceneLayout.finale ? [sceneLayout.finale.at, sceneLayout.finale.distance, sceneLayout.finale.view] : focusPoint(sceneLayout, slots, hint.control?.id, step?.kind === "set" ? Object.keys(step.otherControls ?? {}) : [])
     // wait a frame: on the first render the scene module is still loading
-    const t = window.setTimeout(() => sceneRef.current?.focus(at, distance, view), 60)
+    const t = window.setTimeout(() => {
+      // a part the student reads about: the camera flies to it; once the card is closed, back to the step
+      if (build.info && sceneRef.current?.showPart(build.info)) return
+      sceneRef.current?.focus(at, distance, view)
+    }, 60)
     return () => window.clearTimeout(t)
     // Focus once per step, not on every hint change inside a step: hint is left out on purpose.
     // and once more after the step's question: a look at the symptom, then at the button to press
-  }, [state.step, state.answered.length, sceneLayout, sceneError, sceneReady])
+  }, [state.step, state.answered.length, sceneLayout, sceneError, sceneReady, build.info])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -234,6 +238,9 @@ export const EduPc = ({
         <div className="edu-pc-stage">
           <div className="edu-pc-view" ref={hostRef} />
           {sceneError && <p className="edu-pc-error">{sceneError}</p>}
+          <p className="edu-pc-keys" aria-hidden="true">
+            Камера: перетягни мишею або стрілки, W A S D; наблизити + і −
+          </p>
           {step && <StepCard step={step} index={state.step} total={scenario.steps.length} />}
           {infoPart && <PartInfo part={infoPart} onClose={() => build.setInfo(null)} />}
           {/* a card that shows the mistake itself needs no second copy of it */}

@@ -1,10 +1,18 @@
 import { describe, expect, test } from "vitest"
 import { FRONT_VIEW, focusPoint, focusStops } from "./focus.ts"
-import { grade3DeskLayout, grade8CaseLayout, grade8DeskLayout, grade8LabLayout, standing } from "./layout.ts"
+import { scenarios } from "../scenarios/index.ts"
+import { grade3DeskLayout, grade8CaseLayout, grade8DeskLayout, grade8FaultLayout, grade8LabLayout, layouts, standing } from "./layout.ts"
 
 describe("focusPoint", () => {
-  test("looks at the whole board when there is nothing to place", () => {
-    expect(focusPoint(grade8DeskLayout, [], undefined)).toEqual([[0, 0, 0], 40, FRONT_VIEW])
+  test("looks at the whole board and the parts round it when there is nothing to place", () => {
+    const [at, distance, view] = focusPoint(grade8DeskLayout, [], undefined)
+    expect(Math.hypot(at[0], at[2])).toBeLessThan(5)
+    expect(distance).toBe(grade8DeskLayout.overview)
+    expect(view).toEqual(FRONT_VIEW)
+  })
+
+  test("looks at the bench alone when no parts lie round it", () => {
+    expect(focusPoint(grade8FaultLayout, [], undefined)).toEqual([[0, 0, 0], grade8FaultLayout.overview, FRONT_VIEW])
   })
 
   test("looks at the lever on a lever step", () => {
@@ -35,8 +43,11 @@ describe("focusPoint", () => {
     expect(view[0]).toBeLessThan(0)
   })
 
-  test("stands back for the whole case", () => {
-    expect(focusPoint(grade8CaseLayout, [], undefined)[1]).toBe(grade8CaseLayout.overview)
+  test("stands back for the whole case and the parts in front of it", () => {
+    const [at, distance] = focusPoint(grade8CaseLayout, [], undefined)
+    expect(distance).toBeGreaterThan(grade8CaseLayout.overview ?? 0)
+    // the parts lie in front of the case: the look moves towards them
+    expect(at[2]).toBeGreaterThan(0)
   })
 
   test("keeps the monitor's button in view when it is the likely mistake on the power step", () => {
@@ -65,5 +76,13 @@ describe("focusPoint", () => {
     const [at, distance] = focusStops(grade8LabLayout, ["usb", "monitor"])
     expect(at[2]).toBeLessThan(0)
     expect(distance).toBeGreaterThan(100)
+  })
+})
+
+describe("parts lying on the desk", () => {
+  test.each(Object.entries(layouts))("%s: each one is a part of the scenario that a step puts in place", (id, layout) => {
+    const scenario = scenarios[id]
+    const placedByStep = new Set(scenario?.steps.flatMap((s) => (s.kind === "place" ? Object.keys(s.targets) : [])))
+    for (const pose of layout.loose ?? []) expect(placedByStep.has(pose.part), pose.part).toBe(true)
   })
 })
