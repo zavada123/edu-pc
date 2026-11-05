@@ -18,6 +18,11 @@ export interface SlotPose {
   /** Turn of a plug around the way it goes in, in radians: a USB plug stands upright in an upright socket. */
   readonly roll?: number
   /** Shrink the placed part to fit the area, as a big device in a sorting basket. */
+  /**
+   * A cover over other slots (the case's side panel over the whole inside): it takes the pointer only while
+   * the part in hand fits it, so on other steps it does not hide the slots under it.
+   */
+  readonly cover?: boolean
   readonly fit?: boolean
   /** Turn of the placed part around the vertical, in radians: a plug in the back of the system unit, which faces away. */
   readonly yaw?: number
@@ -253,7 +258,7 @@ export const BOARD_TURN_IN_CASE = 3
 export const onBoard = (x: number, y: number, z: number): Vec3 => [BOARD_IN_CASE[0] + z, BOARD_IN_CASE[1] + y, BOARD_IN_CASE[2] - x]
 
 const PSU_AT: Vec3 = [16.2, CASE_FLOOR, 14.4]
-const HDD_AT: Vec3 = [14.1, CASE_FLOOR, -13.2]
+const HDD_AT: Vec3 = [15, CASE_FLOOR, -8]
 /** The slot for the graphics card: card fingers sit 0.8 cm deep in the PCIe slot. */
 const pcie = (at: readonly [number, number]): Vec3 => onBoard(at[0], BOARD_TOP + 1.1 - 0.8, at[1])
 const GPU_AT = pcie(BOARD_CONNECTORS.pcieX16)
@@ -284,7 +289,7 @@ export const grade8CaseLayout: SceneLayout = {
   power: { control: "power", on: "on" },
   slots: {
     psuBay: { at: PSU_AT, area: [8.8, 15, 14.2] },
-    boardTray: { at: BOARD_IN_CASE, area: [30.7, 3, 24.6] },
+    boardTray: { at: BOARD_IN_CASE, area: [30.7, 3, 24.6], cover: true },
     pcieX16: { at: GPU_AT, area: [1.6, 3, 9.4], view: [0.55, 0.8, 0.45] },
     pcieX1: { at: pcie(BOARD_CONNECTORS.pcieX1), area: [1.4, 2.4, 5.4], view: [0.55, 0.8, 0.45] },
     hddBay: { at: HDD_AT, area: [10.6, 3.4, 15] },
@@ -297,7 +302,7 @@ export const grade8CaseLayout: SceneLayout = {
       area: [1.8, 1.8, 1.8],
       cableFrom: add(HDD_AT, HDD_DATA_LOCAL)
     },
-    caseSide: { at: [0, CASE_SIZE[1], 0], area: [CASE_SIZE[0], 1.2, CASE_SIZE[2]] },
+    caseSide: { at: [0, CASE_SIZE[1], 0], area: [CASE_SIZE[0], 1.2, CASE_SIZE[2]], cover: true },
     gpuHdmi: {
       at: add(GPU_AT, GPU_HDMI_LOCAL),
       area: [1.1, 1.8, 1.4],
@@ -312,7 +317,7 @@ export const grade8CaseLayout: SceneLayout = {
     usb4: rearPort(REAR_PORTS.usb4)
   },
   finale: { at: [0, 16, -24], distance: 110, view: [0.25, 0.55, 1] },
-  buttons: [{ control: "power", at: [-CASE_SIZE[0] / 2 - 0.05, 10.5, -18], normal: [-1, 0, 0] }],
+  buttons: [{ control: "power", at: [-CASE_SIZE[0] / 2 - 0.05, 10.5, -12], normal: [-1, 0, 0] }],
   props: [
     { kind: "monitor", at: [0, 0, -46] },
     { kind: "keyboard", at: [0, 0, -31] },

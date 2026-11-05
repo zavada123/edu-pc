@@ -4,7 +4,7 @@ import { grade8Case } from "../scenarios/grade8-case.ts"
 import { grade8Club } from "../scenarios/grade8-club.ts"
 import { buildBoard, buildLever } from "./board.ts"
 import { buildCase } from "./case.ts"
-import { realModel } from "./gltf.ts"
+import { hasRealModel, PLACED_BY_FILE, realModel } from "./gltf.ts"
 import {
   atxPlug,
   eightPinPlug,
@@ -93,9 +93,11 @@ export const MODELLED: ReadonlySet<PartKind> = new Set<PartKind>([
  * (monitorCable, keyboardCable, mouseCable) is its plug: that is what the student holds and plugs in.
  */
 export const buildModel = (kind: PartKind, placed: boolean): Group => {
+  // a device on the desk gets its realistic model in deviceModel; the board's own model goes in under the parts on it (see buildBoard)
+  const real = kind === "motherboard" || kind in DEVICES ? null : realModel(kind)
+  // the case's file is already where the code-built case stands
+  if (real && PLACED_BY_FILE.has(kind)) return real
   const code = codeModel(kind, placed)
-  // the board's own model goes in under the parts on it (see buildBoard)
-  const real = kind === "motherboard" ? null : realModel(kind)
   return real ? standIn(real, code) : code
 }
 
@@ -108,10 +110,43 @@ const standIn = (real: Group, code: Group): Group => {
   const have = new Box3().setFromObject(real)
   const a = want.getCenter(new Vector3())
   const b = have.getCenter(new Vector3())
-  real.children[0]?.position.set(a.x - b.x, want.min.y - have.min.y, a.z - b.z)
+  const model = real.children[0]
+  model?.position.set(a.x - b.x, want.min.y - have.min.y, a.z - b.z)
   Object.assign(real.userData, code.userData)
+  // the monitor keeps its picture: the code-built screen goes onto the real one's glass
+  const screen = code.children.find((c) => c.userData.screen)
+  if (screen && model) {
+    screen.position.set(...REAL_SCREEN.at)
+    screen.scale.set(REAL_SCREEN.size[0] / SCREEN_SIZE[0], REAL_SCREEN.size[1] / SCREEN_SIZE[1], 1)
+    model.add(screen)
+  }
   return real
 }
+
+/** The realistic case is loaded: it is smaller than the code-built one (see REAL_CASE). */
+const realCaseActive = (): boolean => hasRealModel("case")
+
+/**
+ * The opening of the realistic case (Fractal Design Meshify C) in case coordinates: from its top (-x) to its
+ * bottom, the height of its open side, from its front (-z) to its back. Its back is where the code-built case's is.
+ */
+const REAL_CASE = { x: [-21.2, 21.5], top: 19.7, z: [-15.4, 22.5] } as const
+
+/** The side panel sized to the realistic case's open side: the slot pose stands at the code-built case's top. */
+const fitToRealCase = (panel: Group): Group => {
+  const [x0, x1] = REAL_CASE.x
+  const [z0, z1] = REAL_CASE.z
+  panel.scale.set((x1 - x0) / CASE_SIZE[0], 1, (z1 - z0) / CASE_SIZE[2])
+  panel.position.set((x0 + x1) / 2, REAL_CASE.top - CASE_SIZE[1], (z0 + z1) / 2)
+  const g = new Group()
+  g.add(panel)
+  return g
+}
+
+/** The code-built monitor's picture, width and height (see `monitor` in devices.ts). */
+const SCREEN_SIZE = [50.4, 28.6] as const
+/** Where the glass of the realistic monitor is in its file: its middle and its size. */
+const REAL_SCREEN = { at: [0, 19.8, 0.42] as const, size: [50.6, 24.8] as const }
 
 const codeModel = (kind: PartKind, placed: boolean): Group => {
   switch (kind) {
@@ -136,7 +171,7 @@ const codeModel = (kind: PartKind, placed: boolean): Group => {
     case "sataDataCable":
       return shadowed(sataDataPlug())
     case "sidePanel":
-      return sidePanel()
+      return realCaseActive() ? fitToRealCase(sidePanel()) : sidePanel()
     case "monitorCable":
       return shadowed(hdmiPlug())
     case "keyboardCable":
@@ -160,7 +195,12 @@ export type DeviceKind = "monitor" | "keyboard" | "mouse" | "speakers" | "printe
 const DEVICES: Record<DeviceKind, () => Group> = { monitor, keyboard, mouse, speakers, printer, flashDrive, smartphone, powerStrip }
 
 /** The device itself, for desk props, baskets and tray pictures. */
-export const deviceModel = (kind: DeviceKind): Group => shadowed(DEVICES[kind]())
+export const deviceModel = (kind: DeviceKind): Group => {
+  const code = shadowed(DEVICES[kind]())
+  // a smartphone or a power strip is no part of the computer: no realistic model for them
+  const real = kind === "smartphone" || kind === "powerStrip" ? null : realModel(kind)
+  return real ? standIn(real, code) : code
+}
 
 /** The device a cable belongs to: its tray picture shows the device, so the student knows whose cable it is. */
 const CABLE_OF: Partial<Record<PartKind, DeviceKind>> = { monitorCable: "monitor", keyboardCable: "keyboard", mouseCable: "mouse" }
@@ -241,7 +281,7 @@ export const placedModel = (kind: PartKind, pose: SlotPose, turn: number): Group
  */
 export const systemUnit = (): Group => {
   const inside = new Group()
-  inside.add(buildCase())
+  inside.add(buildModel("case", true))
   const skip = new Set(["gpu", "pcie", "monitor", "keyboard", "mouse"])
   for (const [slot, part] of Object.entries(SOLVED_CASE)) {
     const kind = grade8Case.parts.find((p) => p.id === part)?.kind
