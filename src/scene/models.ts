@@ -4,6 +4,7 @@ import { grade8Case } from "../scenarios/grade8-case.ts"
 import { grade8Club } from "../scenarios/grade8-club.ts"
 import { buildBoard, buildLever } from "./board.ts"
 import { buildCase } from "./case.ts"
+import { realModel } from "./gltf.ts"
 import {
   atxPlug,
   eightPinPlug,
@@ -44,7 +45,7 @@ export const assembledBoard = (): Group => {
   for (const [kind, slot] of installed) {
     const pose = slots[slot]
     if (!pose) continue
-    const part = buildPart(kind, true)
+    const part = buildModel(kind, true)
     part.position.set(...pose.at)
     g.add(part)
   }
@@ -92,6 +93,26 @@ export const MODELLED: ReadonlySet<PartKind> = new Set<PartKind>([
  * (monitorCable, keyboardCable, mouseCable) is its plug: that is what the student holds and plugs in.
  */
 export const buildModel = (kind: PartKind, placed: boolean): Group => {
+  const code = codeModel(kind, placed)
+  const real = realModel(kind)
+  return real ? standIn(real, code) : code
+}
+
+/**
+ * Puts a realistic model where the code-built one stands: the same footprint centre and the same
+ * bottom, so every slot pose fits it as it is. It keeps the code-built model's data (a plug's cable end).
+ */
+const standIn = (real: Group, code: Group): Group => {
+  const want = new Box3().setFromObject(code)
+  const have = new Box3().setFromObject(real)
+  const a = want.getCenter(new Vector3())
+  const b = have.getCenter(new Vector3())
+  real.children[0]?.position.set(a.x - b.x, want.min.y - have.min.y, a.z - b.z)
+  Object.assign(real.userData, code.userData)
+  return real
+}
+
+const codeModel = (kind: PartKind, placed: boolean): Group => {
   switch (kind) {
     case "motherboard":
       return assembledBoard()

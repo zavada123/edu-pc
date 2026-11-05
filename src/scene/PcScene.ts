@@ -45,6 +45,7 @@ import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
 import { noDiskTexture, signTexture } from "./textures.ts"
 import { GRADE8_BOARD, type LoosePose, type SceneLayout, type Vec3 } from "./layout.ts"
+export { preloadModels } from "./gltf.ts"
 import { buildModel, deviceModel, type DeviceKind, iconModel, MODELLED, placedModel, systemUnit } from "./models.ts"
 
 export interface SceneEvents {

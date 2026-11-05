@@ -14,6 +14,9 @@ import "./edu-pc.css"
 
 const DONE_DELAY_MS = 2600
 
+/** Parts that stand on a ready board (the case exercises bring the board with them), so their models load too. */
+const ON_BOARD = ["cpu", "cooler", "ram", "m2ssd"] as const
+
 /** The current step still has to put this part somewhere else: it stands elsewhere, or nowhere yet. */
 const stillToPlace = (scenario: Scenario, state: BuildState, part: string): boolean => {
   const step = currentStep(scenario, state)
@@ -30,6 +33,11 @@ export interface EduPcProps extends BuildCallbacks {
   readonly hints?: boolean
   /** Fewer pixels and no antialiasing, for old school computers. */
   readonly lightGraphics?: boolean
+  /**
+   * A folder with the realistic models of real parts (the GLB files from `public/models`). Without it
+   * every part is the simpler model built in code.
+   */
+  readonly modelsUrl?: string | undefined
   /** Called once the 3D scene has loaded. For automated tests and teacher tools. */
   readonly onSceneReady?: ((scene: SceneHandle) => void) | undefined
   /** Shows «Наступне завдання» on the summary at the end; the page opens the next exercise. */
@@ -44,6 +52,7 @@ export const EduPc = ({
   layout,
   hints = true,
   lightGraphics = false,
+  modelsUrl,
   onAction,
   onComplete,
   onSceneReady,
@@ -73,6 +82,11 @@ export const EduPc = ({
     if (!host || !sceneLayout) return
     let cancelled = false
     import("../scene/PcScene.ts")
+      .then(async (mod) => {
+        // the realistic models load before the scene is made, so every part is drawn with them from the start
+        if (modelsUrl) await mod.preloadModels(modelsUrl, [...ON_BOARD, ...scenario.parts.map((p) => p.kind)])
+        return mod
+      })
       .then(({ PcScene }) => {
         if (cancelled) return
         sceneRef.current = new PcScene(
@@ -105,7 +119,7 @@ export const EduPc = ({
       sceneRef.current?.dispose()
       sceneRef.current = null
     }
-  }, [scenario, sceneLayout, lightGraphics])
+  }, [scenario, sceneLayout, lightGraphics, modelsUrl])
 
   // Let the last action play out in 3D (fans spin up, the monitor lights) before the summary covers it.
   const finished = isDone(scenario, state)
