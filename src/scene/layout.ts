@@ -261,8 +261,12 @@ export const grade8DeskLayout: SceneLayout = {
 export const CASE_SIZE: Vec3 = [43, 21, 45]
 export const CASE_FLOOR = 1
 const STANDOFF = 0.6
-/** Where our board's centre lands in the case, and its quarter turn there (3: the rear panel faces the back). */
-export const BOARD_IN_CASE: Vec3 = [-4.25, CASE_FLOOR + STANDOFF, 8.9]
+/**
+ * Where our board's centre lands in the case, and its quarter turn there (3: the rear panel faces the back).
+ * Its ports reach into the I/O shield in the case's back wall, as on a real build, and its graphics card's
+ * bracket comes up to the slot covers.
+ */
+export const BOARD_IN_CASE: Vec3 = [-4.25, CASE_FLOOR + STANDOFF, 9.65]
 export const BOARD_TURN_IN_CASE = 3
 
 /** A point on our board (board coordinates) in case coordinates, once the board is in the case. */
@@ -361,7 +365,6 @@ export const grade8CaseLayout: SceneLayout = {
       at: add(GPU_AT, GPU_POWER_LOCAL),
       area: [2.4, 2.2, 2.4],
       cableFrom: [...PSU_SOCKETS.psuPcie1],
-      via: [add(GPU_AT, [5, 15.5, -6.6])],
       view: [0.3, 1, 0.5]
     },
     hddPowerPort: {

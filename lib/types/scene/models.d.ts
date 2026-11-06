@@ -20,6 +20,13 @@ export interface CableEnd {
     readonly start: Vector3;
     readonly lead: Vector3;
 }
+/**
+ * A neat lane between two points inside the case: level at the height of the higher one, along one axis
+ * and then the other, the way a tidy builder lays a cable. The first leg never goes back the way `from` came.
+ */
+export declare const laneBetween: (from: Vector3, to: Vector3, came: Vector3) => Vector3[];
+/** A polyline with every corner cut round: a curve through it runs straight and bends only at the corners. */
+export declare const roundCorners: (points: ReadonlyArray<Vector3>, bend: number) => Vector3[];
 /** Where the cable leaves a plug standing in a slot: for drawing a cable that ends in it. */
 export declare const plugEnd: (kind: PartKind, pose: SlotPose, turn: number) => CableEnd | null;
 /**
