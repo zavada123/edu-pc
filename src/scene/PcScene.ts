@@ -41,6 +41,7 @@ import type { Scenario } from "../core/scenario.ts"
 import { buildBoard, buildDesk, buildLever, DESK_SIZE } from "./board.ts"
 import { powerButton } from "./case.ts"
 import { type Bounds, FRONT_VIEW } from "./focus.ts"
+import { flyStep } from "./fly.ts"
 import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
 import { noDiskTexture, signTexture } from "./textures.ts"
@@ -133,7 +134,7 @@ const FAR_MARGIN = 300
 
 type KeyMove = "left" | "right" | "up" | "down" | "in" | "out" | "forward" | "back" | "strafeLeft" | "strafeRight"
 /**
- * Keys that move the camera: W A S D fly it over the desk, the arrows turn and tilt it, + and − zoom.
+ * Keys that move the camera: W S fly it the way it looks, A D slide it sideways, the arrows turn and tilt it, + and − zoom.
  * Codes match any keyboard layout.
  */
 const KEY_MOVES: Readonly<Record<string, KeyMove>> = {
@@ -1019,6 +1020,23 @@ export class PcScene implements SceneHandle {
     if (this.keys.size === 0 || dt === 0) return
     this.focusing = 0
     const k = this.keys
+    // W S fly the camera the way it looks, tilt included; A D slide it sideways; the aim stays over the desk
+    const ahead = (k.has("forward") ? 1 : 0) - (k.has("back") ? 1 : 0)
+    const aside = (k.has("strafeRight") ? 1 : 0) - (k.has("strafeLeft") ? 1 : 0)
+    if (ahead !== 0 || aside !== 0) {
+      const target = this.controls.target
+      const cam = this.camera.position
+      const [w, d] = this.layout.desk ?? DESK_SIZE
+      const next = flyStep(
+        { camera: [cam.x, cam.y, cam.z], target: [target.x, target.y, target.z] },
+        ahead,
+        aside,
+        cam.distanceTo(target) * FLY_SPEED * dt,
+        { halfWidth: w / 2, halfDepth: d / 2, top: this.controls.maxDistance / 2, minDistance: this.controls.minDistance },
+      )
+      cam.set(...next.camera)
+      target.set(...next.target)
+    }
     const offset = this.camera.position.clone().sub(this.controls.target)
     const s = new Spherical().setFromVector3(offset)
     s.theta += ((k.has("left") ? 1 : 0) - (k.has("right") ? 1 : 0)) * TURN_SPEED * dt
@@ -1026,19 +1044,6 @@ export class PcScene implements SceneHandle {
     s.phi = Math.min(this.controls.maxPolarAngle, Math.max(MIN_POLAR, s.phi))
     const zoom = (k.has("out") ? 1 : 0) - (k.has("in") ? 1 : 0)
     s.radius = Math.min(this.controls.maxDistance, Math.max(this.controls.minDistance, s.radius * Math.exp(zoom * ZOOM_SPEED * dt)))
-    // W A S D fly the camera and the point it looks at together, level over the desk, the way the camera faces
-    // the point the camera looks at stays over the desk: it may not fly off into the dark
-    const ahead = (k.has("forward") ? 1 : 0) - (k.has("back") ? 1 : 0)
-    const aside = (k.has("strafeRight") ? 1 : 0) - (k.has("strafeLeft") ? 1 : 0)
-    if (ahead !== 0 || aside !== 0) {
-      const forward = new Vector3(-offset.x, 0, -offset.z).normalize()
-      const right = new Vector3(-forward.z, 0, forward.x)
-      const step = forward.multiplyScalar(ahead).add(right.multiplyScalar(aside)).normalize().multiplyScalar(s.radius * FLY_SPEED * dt)
-      const target = this.controls.target
-      const [w, d] = this.layout.desk ?? DESK_SIZE
-      target.x = Math.min(w / 2, Math.max(-w / 2, target.x + step.x))
-      target.z = Math.min(d / 2, Math.max(-d / 2, target.z + step.z))
-    }
     this.camera.position.copy(this.controls.target).add(new Vector3().setFromSpherical(s))
   }
 
