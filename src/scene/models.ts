@@ -1,4 +1,4 @@
-import { Box3, CatmullRomCurve3, Group, Mesh, TubeGeometry, Vector3 } from "three"
+import { Box3, BoxGeometry, CatmullRomCurve3, CylinderGeometry, Group, Mesh, TubeGeometry, Vector3 } from "three"
 import type { PartKind } from "../core/parts.ts"
 import { grade8Case } from "../scenarios/grade8-case.ts"
 import { grade8Club } from "../scenarios/grade8-club.ts"
@@ -102,6 +102,7 @@ export const buildModel = (kind: PartKind, placed: boolean): Group => {
   // a device on the desk gets its realistic model in deviceModel; the board's own model goes in under the parts on it (see buildBoard)
   const real = kind === "motherboard" || kind in DEVICES ? null : realModel(kind)
   // the case's file is already where the code-built case stands
+  if (real && kind === "case") return withIoShield(real)
   if (real && PLACED_BY_FILE.has(kind)) return real
   const code = codeModel(kind, placed)
   return real ? standIn(real, code) : code
@@ -126,6 +127,22 @@ const standIn = (real: Group, code: Group): Group => {
     screen.scale.set(REAL_SCREEN.size[0] / SCREEN_SIZE[0], REAL_SCREEN.size[1] / SCREEN_SIZE[1], 1)
     model.add(screen)
   }
+  return real
+}
+
+/**
+ * The I/O shield in the realistic case's back wall: the plate round the board's rear ports. It fills the
+ * opening (x, y in case coordinates, measured on the case's file) round the ports, which come through it.
+ */
+const IO_SHIELD = { x: [-18.55, -2.2], y: [2.0, 6.5], z: 21.66 } as const
+
+const withIoShield = (real: Group): Group => {
+  const [x0, x1] = IO_SHIELD.x
+  const [y0, y1] = IO_SHIELD.y
+  const plate = new Mesh(new BoxGeometry(x1 - x0, y1 - y0, 0.08), mat("#8d939a", { metal: 0.85, rough: 0.4 }))
+  plate.position.set((x0 + x1) / 2, (y0 + y1) / 2, IO_SHIELD.z)
+  plate.receiveShadow = true
+  real.add(plate)
   return real
 }
 
@@ -227,17 +244,20 @@ export const iconModel = (kind: PartKind): Group => {
 
 // ---------- placed parts and their cables ----------
 
-/** Cable thickness and colour by the kind of plug. */
+/**
+ * Cable thickness and colour by the kind of plug: a bundle of wires as thick as a real one, not a hose.
+ * Inside the case the bundles run along straight lanes with neat bends, held by cable ties.
+ */
 const CABLES: Partial<Record<PartKind, { readonly r: number; readonly color: string }>> = {
-  atxCable: { r: 0.55, color: "#141518" },
-  cpuPowerCable: { r: 0.32, color: "#141518" },
-  gpuPowerCable: { r: 0.32, color: "#141518" },
-  sataPowerCable: { r: 0.22, color: "#141518" },
-  sataDataCable: { r: 0.14, color: "#c0392b" },
-  fanCable: { r: 0.12, color: "#141518" },
-  frontPanelCable: { r: 0.16, color: "#2b2d31" },
-  frontAudioCable: { r: 0.16, color: "#141518" },
-  frontUsbCable: { r: 0.3, color: "#1d3f8f" },
+  atxCable: { r: 0.34, color: "#141518" },
+  cpuPowerCable: { r: 0.2, color: "#141518" },
+  gpuPowerCable: { r: 0.2, color: "#141518" },
+  sataPowerCable: { r: 0.14, color: "#141518" },
+  sataDataCable: { r: 0.09, color: "#c0392b" },
+  fanCable: { r: 0.08, color: "#141518" },
+  frontPanelCable: { r: 0.11, color: "#2b2d31" },
+  frontAudioCable: { r: 0.11, color: "#141518" },
+  frontUsbCable: { r: 0.18, color: "#1d3f8f" },
   monitorCable: { r: 0.3, color: "#1b1d21" },
   keyboardCable: { r: 0.2, color: "#3e434a" },
   mouseCable: { r: 0.18, color: "#1b1d21" }
@@ -245,6 +265,14 @@ const CABLES: Partial<Record<PartKind, { readonly r: number; readonly color: str
 
 /** How far a cable must go down to count as running to the desk. */
 const DROP = 12
+/** How far a cable runs straight out of its plug before it may bend. */
+const LEAD = 1.4
+/** How round a bend in a cable inside the case is: the corner is cut this far back on each side. */
+const BEND = 0.9
+/** A cable tie goes on a straight run at least this long, and one more every this much. */
+const TIE_EVERY = 5
+const TIE_LENGTH = 0.28
+const tieMaterial = mat("#0c0d0f", { rough: 0.55 })
 
 /** Where a plug's cable leaves it, and a point a little further along, in the plug's parent's coordinates. */
 export interface CableEnd {
@@ -258,24 +286,80 @@ const cableEnd = (plug: Group): CableEnd | null => {
   if (!(out instanceof Vector3) || !(dir instanceof Vector3)) return null
   plug.updateMatrix()
   const start = out.clone().applyMatrix4(plug.matrix)
-  const lead = start.clone().add(dir.clone().transformDirection(plug.matrix).multiplyScalar(2.5))
+  const lead = start.clone().add(dir.clone().transformDirection(plug.matrix).multiplyScalar(LEAD))
   return { start, lead }
 }
 
 /**
- * A cable from a placed plug to where it comes from, sagging a little on the way. With `via` it passes those
- * points (the grommets of the board tray); with `other` it ends in the plug on its other end.
+ * A neat lane between two points inside the case: level at the height of the higher one, along one axis
+ * and then the other, the way a tidy builder lays a cable. The first leg never goes back the way `from` came.
  */
-const cableTube = (plug: Group, kind: PartKind, to: Vector3, via: ReadonlyArray<Vector3>, other: CableEnd | null): Mesh | null => {
+export const laneBetween = (from: Vector3, to: Vector3, came: Vector3): Vector3[] => {
+  const h = Math.max(from.y, to.y)
+  const dx = to.x - from.x
+  const dz = to.z - from.z
+  // the cable keeps going the way it came out of the plug; it turns to the other axis only if it would go back
+  const ax = Math.abs(came.x)
+  const az = Math.abs(came.z)
+  const xFirst =
+    ax >= Math.abs(came.y) && ax >= az ? dx * came.x >= 0 : az >= Math.abs(came.y) ? dz * came.z < 0 : true
+  const corner = xFirst ? new Vector3(to.x, h, from.z) : new Vector3(from.x, h, to.z)
+  return [new Vector3(from.x, h, from.z), corner, new Vector3(to.x, h, to.z)]
+}
+
+/** Drops points that sit on the one before them: a curve through two equal points kinks. */
+const distinct = (points: ReadonlyArray<Vector3>): Vector3[] =>
+  points.filter((p, i) => i === 0 || p.distanceTo(points[i - 1] ?? p) > 0.05)
+
+/** A polyline with every corner cut round: a curve through it runs straight and bends only at the corners. */
+export const roundCorners = (points: ReadonlyArray<Vector3>, bend: number): Vector3[] => {
+  const pts = distinct(points)
+  if (pts.length < 3) return pts
+  const out: Vector3[] = [pts[0] ?? new Vector3()]
+  for (let i = 1; i + 1 < pts.length; i++) {
+    const [a, p, b] = [pts[i - 1], pts[i], pts[i + 1]] as [Vector3, Vector3, Vector3]
+    const cutIn = Math.min(bend, a.distanceTo(p) / 2)
+    const cutOut = Math.min(bend, p.distanceTo(b) / 2)
+    out.push(p.clone().lerp(a, cutIn / a.distanceTo(p)), p.clone().lerp(b, cutOut / p.distanceTo(b)))
+  }
+  out.push(pts[pts.length - 1] ?? new Vector3())
+  return distinct(out)
+}
+
+/** Cable ties round a bundle: one in the middle of every long straight run, and more along a very long one. */
+const cableTies = (points: ReadonlyArray<Vector3>, r: number): Mesh[] => {
+  const ties: Mesh[] = []
+  for (let i = 0; i + 1 < points.length; i++) {
+    const [a, b] = [points[i], points[i + 1]] as [Vector3, Vector3]
+    const length = a.distanceTo(b)
+    if (length < TIE_EVERY) continue
+    const count = Math.floor(length / TIE_EVERY)
+    const dir = b.clone().sub(a).normalize()
+    for (let k = 1; k <= count; k++) {
+      const tie = new Mesh(new CylinderGeometry(r * 1.3, r * 1.3, TIE_LENGTH, 12), tieMaterial)
+      tie.position.copy(a).lerp(b, k / (count + 1))
+      tie.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), dir)
+      ties.push(tie)
+    }
+  }
+  return ties
+}
+
+/**
+ * A cable from a placed plug to where it comes from. Inside the case it runs along neat lanes with round
+ * bends and cable ties: through `via` (the grommets of the board tray) when the pose gives them, otherwise
+ * level over the parts; with `other` it ends in the plug on its other end. A cable to a device on the desk hangs down.
+ */
+const cableTube = (plug: Group, kind: PartKind, to: Vector3, via: ReadonlyArray<Vector3>, other: CableEnd | null): Group | null => {
   const look = CABLES[kind]
   const end = cableEnd(plug)
   if (!look || !end) return null
   const { start, lead } = end
   const tail = other ? [other.lead, other.start] : [to]
   const target = tail[0] ?? to
+  const g = new Group()
   let points: Vector3[]
-  if (via.length > 0) points = [start, lead, ...via, ...tail]
-  else if (start.y - to.y > DROP && !other) {
+  if (via.length === 0 && start.y - to.y > DROP && !other) {
     // a cable down to a device on the desk hangs behind the system unit and runs along the desk;
     // it hangs down on the side the plug faces: behind the system unit, whichever way that is
     const away = new Vector3(lead.x - start.x, 0, lead.z - start.z)
@@ -283,13 +367,16 @@ const cableTube = (plug: Group, kind: PartKind, to: Vector3, via: ReadonlyArray<
     const mid = new Vector3(lead.x + away.x, to.y + look.r, lead.z + away.z)
     points = [start, lead, mid, new Vector3((mid.x + to.x) / 2, to.y + look.r, (mid.z + to.z) / 2), to]
   } else {
-    // inside the case it arcs over the parts
-    const mid = new Vector3((lead.x + target.x) / 2, Math.max(start.y, target.y) + 2, (lead.z + target.z) / 2)
-    points = [start, lead, mid, ...tail]
+    const came = lead.clone().sub(start)
+    const route = via.length > 0 ? [lead, ...via] : laneBetween(lead, target, came)
+    const path = roundCorners([start, ...route, ...tail], BEND)
+    for (const tie of cableTies(distinct([start, ...route, ...tail]), look.r)) g.add(tie)
+    points = path
   }
-  const tube = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 96, look.r, 10), mat(look.color, { rough: 0.7 }))
+  const tube = new Mesh(new TubeGeometry(new CatmullRomCurve3(points, false, "centripetal"), 160, look.r, 10), mat(look.color, { rough: 0.7 }))
   tube.castShadow = true
-  return tube
+  g.add(tube)
+  return g
 }
 
 /** Shrinks a model (never grows it) so its footprint fits an area, as a monitor in a sorting basket. */

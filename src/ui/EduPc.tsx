@@ -68,7 +68,7 @@ export interface EduPcProps extends BuildCallbacks {
   /**
    * How the parts look when the student has not picked it yet (the switch «Графіка» in the header,
    * remembered in localStorage): `simple` (models built in code, fewer pixels), `normal` (realistic
-   * models, default) or `high` (realistic models with more detail, from `modelsUrl` + `hd/`).
+   * models) or `high` (realistic models with more detail, from `modelsUrl` + `hd/`, default; without `modelsUrl` it falls back to `normal`).
    */
   readonly quality?: ModelQuality
   /**
@@ -90,7 +90,7 @@ export const EduPc = ({
   layout,
   hints = true,
   lightGraphics = false,
-  quality: initialQuality = "normal",
+  quality: initialQuality = "high",
   modelsUrl,
   onAction,
   onComplete,
