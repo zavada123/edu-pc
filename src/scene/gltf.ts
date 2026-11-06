@@ -30,7 +30,10 @@ export const MODEL_FILES: Readonly<Partial<Record<PartKind, string>>> = {
   case: "case.glb",
   monitor: "monitor.glb",
   keyboard: "keyboard.glb",
-  mouse: "mouse.glb"
+  mouse: "mouse.glb",
+  speakers: "speakers.glb",
+  printer: "printer.glb",
+  flashDrive: "flashdrive.glb"
 }
 
 /** Models whose file is already in scene coordinates: the board's origin is our board's, the case's the code-built case's. */
