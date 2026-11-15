@@ -18,3 +18,8 @@ models for the «Висока» graphics: full detail and 1024–2048 px texture
 | speakers.glb | [OOGOU A52 Speakers Black and White](https://sketchfab.com/3d-models/none-c09ac57f5a5644adb81d1173dcf101e9) | Vilad |
 | printer.glb | [Epson printer model](https://sketchfab.com/3d-models/none-752da10ef09a4f4782aa6c38a82f4b26) | zafry |
 | flashdrive.glb | [USB Flash Drive](https://sketchfab.com/3d-models/none-b7cfb7e2809e4c64afb713140c982489) (without its cap) | Artik |
+| mfp.glb | [MFP Office Printer](https://sketchfab.com/3d-models/none-d55f6fca7c3d45c883bbff770672970d) | Red Fox / nokillnando |
+| portable-ssd.glb | [SSD Solid-State Drive](https://sketchfab.com/3d-models/none-ad215e54c381456895e21db5062f8714) | isnainul |
+
+`mfp.glb` (a floor-standing office printer and scanner, 120 cm tall) and `portable-ssd.glb` (a 2.5-inch SSD,
+10 × 7 cm) are ready for a lesson but no exercise uses them yet.
