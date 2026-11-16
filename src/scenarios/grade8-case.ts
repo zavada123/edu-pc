@@ -65,26 +65,26 @@ export const grade8Case: Scenario = {
       id: "pcie",
       kind: "gpuPowerCable",
       name: "Кабель живлення відеокарти (PCIe, 8 контактів)",
-      role: "Додатково живить відеокарту. Знімний: один кінець — у відеокарту, другий — у червоне гніздо PCI-E на блоці живлення."
+      role: "Додатково живить відеокарту. Знімний: один кінець — у відеокарту, другий — у червоний роз'єм PCI-E на блоці живлення."
     },
     {
       id: "pcieEnd",
       kind: "psuPlug",
       name: "Кабель PCIe: кінець до блока живлення",
-      role: "Другий кінець кабелю відеокарти. Іде в червоне гніздо з написом PCI-E на блоці живлення.",
+      role: "Другий кінець кабелю відеокарти. Іде в червоний роз'єм з написом PCI-E на блоці живлення.",
       end: "pcie"
     },
     {
       id: "sataPower",
       kind: "sataPowerCable",
       name: "Кабель живлення SATA",
-      role: "Плаский знімний кабель: один кінець — у диск, другий — у червоне гніздо HDD/SATA на блоці живлення."
+      role: "Плаский знімний кабель: один кінець — у диск, другий — у червоний роз'єм HDD/SATA на блоці живлення."
     },
     {
       id: "sataPowerEnd",
       kind: "psuPlug",
       name: "Кабель SATA: кінець до блока живлення",
-      role: "Другий кінець кабелю живлення диска. Іде в червоне гніздо з написом HDD/SATA на блоці живлення.",
+      role: "Другий кінець кабелю живлення диска. Іде в червоний роз'єм з написом HDD/SATA на блоці живлення.",
       end: "sataPower"
     },
     {
@@ -97,7 +97,7 @@ export const grade8Case: Scenario = {
       id: "sataDataEnd",
       kind: "sataDataCable",
       name: "Кабель даних SATA: кінець до диска",
-      role: "Другий кінець кабелю даних. Іде у вузьке гніздо на задньому торці диска, поруч із гніздом живлення.",
+      role: "Другий кінець кабелю даних. Іде у вузький роз'єм на задньому торці диска, поруч із роз'ємом живлення.",
       end: "sataData"
     },
     {
@@ -110,13 +110,13 @@ export const grade8Case: Scenario = {
       id: "frontAudio",
       kind: "frontAudioCable",
       name: "Кабель аудіо передньої панелі",
-      role: "Від гнізд для навушників і мікрофона на корпусі до роз'єму HD_AUDIO на платі."
+      role: "Від роз'ємів для навушників і мікрофона на корпусі до роз'єму HD_AUDIO на платі."
     },
     {
       id: "frontUsb",
       kind: "frontUsbCable",
       name: "Кабель USB передньої панелі",
-      role: "Від гнізд USB на корпусі до роз'єму USB 3.0 на платі. Буває ще USB-C, але на цьому корпусі його немає."
+      role: "Від роз'ємів USB на корпусі до роз'єму USB 3.0 на платі. Буває ще USB-C, але на цьому корпусі його немає."
     },
     {
       id: "caseFan",
@@ -160,22 +160,22 @@ export const grade8Case: Scenario = {
     { id: "gpuPowerPort", label: "Роз'єм живлення відеокарти", accepts: ["cpuPowerCable", "gpuPowerCable"] },
     { id: "hddPowerPort", label: "Роз'єм живлення диска", accepts: ["sataPowerCable"] },
     { id: "sataPort", label: "Роз'єм SATA на платі", accepts: ["sataDataCable"] },
-    { id: "hddDataPort", label: "Гніздо даних SATA на диску", accepts: ["sataDataCable"] },
-    { id: "psuPcie1", label: "Гніздо PCI-E на блоці живлення", tag: "PCI-E", accepts: ["psuPlug"] },
-    { id: "psuPcie2", label: "Гніздо PCI-E на блоці живлення", tag: "PCI-E", accepts: ["psuPlug"] },
-    { id: "psuSata1", label: "Гніздо HDD/SATA на блоці живлення", tag: "HDD/SATA", accepts: ["psuPlug"] },
-    { id: "psuSata2", label: "Гніздо HDD/SATA на блоці живлення", tag: "HDD/SATA", accepts: ["psuPlug"] },
+    { id: "hddDataPort", label: "Роз'єм даних SATA на диску", accepts: ["sataDataCable"] },
+    { id: "psuPcie1", label: "Роз'єм PCI-E на блоці живлення", tag: "PCI-E", accepts: ["psuPlug"] },
+    { id: "psuPcie2", label: "Роз'єм PCI-E на блоці живлення", tag: "PCI-E", accepts: ["psuPlug"] },
+    { id: "psuSata1", label: "Роз'єм HDD/SATA на блоці живлення", tag: "HDD/SATA", accepts: ["psuPlug"] },
+    { id: "psuSata2", label: "Роз'єм HDD/SATA на блоці живлення", tag: "HDD/SATA", accepts: ["psuPlug"] },
     { id: "fPanel", label: "Роз'єм кнопок корпусу (F_PANEL)", tag: "F_PANEL", accepts: ["frontPanelCable", "frontAudioCable"] },
     { id: "hdAudio", label: "Роз'єм аудіо передньої панелі (HD_AUDIO)", tag: "HD_AUDIO", accepts: ["frontPanelCable", "frontAudioCable"] },
     { id: "usb3Header", label: "Роз'єм USB 3.0 для корпусу", tag: "USB 3.0", accepts: ["frontUsbCable"] },
     { id: "chaFan", label: "Роз'єм вентилятора корпусу (CHA_FAN)", tag: "CHA_FAN", accepts: ["fanCable"] },
     { id: "caseSide", label: "Бік корпусу", accepts: ["sidePanel"] },
-    { id: "gpuHdmi", label: "Гніздо HDMI на відеокарті", accepts: ["monitorCable"] },
-    { id: "boardHdmi", label: "Гніздо HDMI на платі", accepts: ["monitorCable"] },
-    { id: "usb1", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] },
-    { id: "usb2", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] },
-    { id: "usb3", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] },
-    { id: "usb4", label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] }
+    { id: "gpuHdmi", label: "Роз'єм HDMI на відеокарті", accepts: ["monitorCable"] },
+    { id: "boardHdmi", label: "Роз'єм HDMI на платі", accepts: ["monitorCable"] },
+    { id: "usb1", label: "Роз'єм USB", accepts: ["keyboardCable", "mouseCable"] },
+    { id: "usb2", label: "Роз'єм USB", accepts: ["keyboardCable", "mouseCable"] },
+    { id: "usb3", label: "Роз'єм USB", accepts: ["keyboardCable", "mouseCable"] },
+    { id: "usb4", label: "Роз'єм USB", accepts: ["keyboardCable", "mouseCable"] }
   ],
   controls: [
     { id: "power", label: "Кнопка живлення", values: ["off", "on"] },
@@ -186,7 +186,7 @@ export const grade8Case: Scenario = {
       id: "look",
       kind: "inspect",
       title: "Роздивись деталі",
-      explain: "Натисни на корпус і на кожну нову деталь і прочитай, що вона робить.",
+      explain: "Натисни по черзі на чотири деталі: корпус, блок живлення, відеокарту й жорсткий диск. Їх можна натискати на столі або в лотку внизу. Прочитай, що робить кожна, і закрий картку. Крок зарахується, коли переглянеш усі чотири.",
       parts: ["case", "psu", "gpu", "hdd"]
     },
     {
@@ -194,7 +194,7 @@ export const grade8Case: Scenario = {
       kind: "place",
       title: "Постав блок живлення",
       explain:
-        "Блок живлення ставлять у нижній відсік, задньою стінкою з гніздом і вимикачем назовні, у віконце корпусу. Вентилятор тоді дивиться на решітку в дні корпусу.",
+        "Блок живлення ставлять у нижній відсік, задньою стінкою з роз'ємом і вимикачем назовні, у віконце корпусу. Вентилятор тоді дивиться на решітку в дні корпусу.",
       question: {
         text: "Що робить блок живлення?",
         right: "Перетворює струм із розетки і живить усі деталі",
@@ -202,7 +202,7 @@ export const grade8Case: Scenario = {
       },
       targets: { psu: ["psuBay"] },
       messages: {
-        wrongTurn: "Гніздо для кабелю і вимикач мають дивитися назовні, у віконце на задній стінці. Поверни блок живлення."
+        wrongTurn: "Роз'єм для кабелю і вимикач мають дивитися назовні, у віконце на задній стінці. Поверни блок живлення."
       }
     },
     {
@@ -219,7 +219,7 @@ export const grade8Case: Scenario = {
       id: "gpu",
       kind: "place",
       title: "Встав відеокарту",
-      explain: "Відеокарту ставлять у найдовший слот PCIe x16, найближчий до процесора. Її гнізда виходять назовні на задній стінці.",
+      explain: "Відеокарту ставлять у найдовший слот PCIe x16, найближчий до процесора. Її роз'єми виходять назовні на задній стінці.",
       goal: "A",
       question: {
         text: "Що робить відеокарта?",
@@ -229,7 +229,7 @@ export const grade8Case: Scenario = {
       targets: { gpu: ["pcieX16"] },
       messages: {
         wrongSlot: "Це короткий слот PCIe x1, для маленьких плат. Відеокарті потрібен довгий слот PCIe x16 біля процесора.",
-        wrongTurn: "Гнізда відеокарти мають вийти назовні, на задню стінку. Поверни відеокарту."
+        wrongTurn: "Роз'єми відеокарти мають вийти назовні, на задню стінку. Поверни відеокарту."
       }
     },
     {
@@ -263,7 +263,7 @@ export const grade8Case: Scenario = {
       },
       messages: {
         wrongSlot:
-          "Схожі роз'єми, але не однакові. CPU — біля процесора, PCIe — у відеокарту і в гніздо PCI-E на блоці, живлення диска — у гніздо HDD/SATA."
+          "Схожі роз'єми, але не однакові. CPU — біля процесора, PCIe — у відеокарту і в роз'єм PCI-E на блоці, живлення диска — у роз'єм HDD/SATA."
       }
     },
     {
@@ -271,7 +271,7 @@ export const grade8Case: Scenario = {
       kind: "place",
       title: "Під'єднай корпус до плати",
       explain:
-        "Кнопка, гнізда USB і навушників на корпусі та його вентилятори працюють через плату. Тонкі дроти кнопок — у F_PANEL у нижньому куті плати, аудіо — у HD_AUDIO, USB — у роз'єм USB 3.0 на правому краю, вентилятор — у CHA_FAN.",
+        "Кнопка, роз'єми USB і навушників на корпусі та його вентилятори працюють через плату. Тонкі дроти кнопок — у F_PANEL у нижньому куті плати, аудіо — у HD_AUDIO, USB — у роз'єм USB 3.0 на правому краю, вентилятор — у CHA_FAN.",
       question: {
         text: "Навіщо під'єднувати кнопку корпусу до плати?",
         right: "Плата дізнається про натискання і вмикає комп'ютер",
@@ -294,7 +294,7 @@ export const grade8Case: Scenario = {
       kind: "place",
       title: "Під'єднай монітор, клавіатуру й мишу",
       explain:
-        "Клавіатуру й мишу під'єднують до гнізд USB на задній стінці. Коли в комп'ютері є відеокарта, монітор під'єднують до неї, а не до плати.",
+        "Клавіатуру й мишу під'єднують до роз'ємів USB на задній стінці. Коли в комп'ютері є відеокарта, монітор під'єднують до неї, а не до плати.",
       goal: "A",
       question: {
         text: "Які з цих пристроїв передають дані в комп'ютер?",
@@ -303,7 +303,7 @@ export const grade8Case: Scenario = {
       },
       targets: { monitor: ["gpuHdmi"], keyboard: ["usb1", "usb2", "usb3", "usb4"], mouse: ["usb1", "usb2", "usb3", "usb4"] },
       messages: {
-        wrongSlot: "Відеокарта вже стоїть, тож зображення створює вона. Монітор під'єднують до гнізда на відеокарті, нижче."
+        wrongSlot: "Відеокарта вже стоїть, тож зображення створює вона. Монітор під'єднують до роз'єму на відеокарті, нижче."
       }
     },
     {

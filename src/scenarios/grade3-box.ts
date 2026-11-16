@@ -6,7 +6,7 @@ const IN = "Кошик «Передає в комп'ютер»"
 const OUT = "Кошик «Показує результат»"
 const STORE = "Кошик «Зберігає на потім»"
 const basket = (id: string, label: string): Slot => ({ id, label, accepts: DEVICES })
-const usb = (id: string): Slot => ({ id, label: "Гніздо USB", accepts: ["keyboardCable", "mouseCable"] })
+const usb = (id: string): Slot => ({ id, label: "Роз'єм USB", accepts: ["keyboardCable", "mouseCable"] })
 const IN_SLOTS = ["in1", "in2"]
 const OUT_SLOTS = ["out1", "out2", "out3"]
 
@@ -58,7 +58,7 @@ export const grade3Box: Scenario = {
     { id: "deskMonitor", label: "Місце для монітора", accepts: ["monitor"] },
     { id: "deskKeyboard", label: "Місце для клавіатури", accepts: ["keyboard"] },
     { id: "deskMouse", label: "Місце для миші", accepts: ["mouse"] },
-    { id: "hdmi", label: "Гніздо HDMI", accepts: ["monitorCable"] },
+    { id: "hdmi", label: "Роз'єм HDMI", accepts: ["monitorCable"] },
     usb("usb1"),
     usb("usb2"),
     usb("usb3"),
@@ -114,9 +114,9 @@ export const grade3Box: Scenario = {
       title: "Підключи кабелі",
       goal: "B",
       explain:
-        "Гнізда для кабелів ззаду на системному блоці. Кожен кабель має свою форму: кабель монітора йде в широке гніздо HDMI, клавіатура й миша — у прямокутні гнізда USB.",
+        "Роз'єми для кабелів ззаду на системному блоці. Кожен кабель має свою форму: кабель монітора йде в широкий роз'єм HDMI, клавіатура й миша — у прямокутні роз'єми USB.",
       question: {
-        text: "Чому кабель монітора не влазить у гніздо USB?",
+        text: "Чому кабель монітора не влазить у роз'єм USB?",
         right: "У них різна форма",
         wrong: ["Кабель зламаний", "Треба натиснути сильніше"]
       },

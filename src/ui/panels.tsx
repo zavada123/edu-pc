@@ -29,13 +29,38 @@ export const StepList = ({ scenario, state }: { scenario: Scenario; state: Build
   </ol>
 )
 
-export const StepCard = ({ step, index, total }: { step: Step; index: number; total: number }) => (
+/** One part an «inspect» step asks the student to look at, and whether they already did. */
+export interface LookItem {
+  readonly id: string
+  readonly name: string
+  readonly done: boolean
+}
+
+export const StepCard = ({ step, index, total, look }: { step: Step; index: number; total: number; look: ReadonlyArray<LookItem> }) => (
   <section className="edu-pc-card" aria-live="polite">
     <p className="edu-pc-card-count">
       Крок {index + 1} з {total}
     </p>
     <h2 className="edu-pc-card-title">{step.title}</h2>
     <p className="edu-pc-card-text">{step.explain}</p>
+    {look.length > 0 && (
+      <>
+        <p className="edu-pc-look-count">
+          Переглянуто {look.filter((item) => item.done).length} з {look.length}
+        </p>
+        <ul className="edu-pc-look">
+          {look.map((item) => (
+            <li key={item.id} className={item.done ? "is-done" : undefined}>
+              <span className="edu-pc-look-mark" aria-hidden="true">
+                {item.done ? "✓" : ""}
+              </span>
+              {item.name}
+              {item.done && <span className="edu-pc-sr"> — переглянуто</span>}
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
   </section>
 )
 

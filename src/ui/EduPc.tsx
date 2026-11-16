@@ -10,6 +10,7 @@ import type { PcScene, SceneHandle } from "../scene/PcScene.ts"
 import { DoneCard, HeldBar, PartInfo, QuestionCard, SortCard, StepCard, StepList, ToastLine, Tray, UpgradeCard } from "./panels.tsx"
 import { useFullScreen } from "./fullscreen.ts"
 import { useBuild, type BuildCallbacks } from "./useBuild.ts"
+import { Select } from "./Select.tsx"
 import "./tokens.css"
 import "./edu-pc.css"
 
@@ -249,6 +250,16 @@ export const EduPc = ({
   // the next step's question waits while a part card is open: the student reads about the last part first
   const question = step?.question && !state.answered.includes(step.id) && !infoPart ? step.question : undefined
 
+  // On an «inspect» step the card lists the parts to look at and ticks the ones already read.
+  const look =
+    step?.kind === "inspect"
+      ? step.parts.map((id) => ({
+          id,
+          name: scenario.parts.find((p) => p.id === id)?.name ?? id,
+          done: state.inspected.includes(id)
+        }))
+      : []
+
   const pick = (part: Part) => {
     if (step?.kind === "inspect" || part.id === sceneLayout.benchPart) build.inspect(part.id)
     else build.take(part.id)
@@ -262,19 +273,18 @@ export const EduPc = ({
           {scenario.title}
         </h1>
         <div className="edu-pc-tools">
-          <label className="edu-pc-switch" title="Проста — для старих комп'ютерів, висока — найдетальніші моделі">
+          <span className="edu-pc-switch" title="Проста — для старих комп'ютерів, висока — найдетальніші моделі">
             Графіка
-            <select className="edu-pc-quality" value={quality} onChange={(e) => pickQuality(e.target.value as ModelQuality)}>
-              {qualities.map((q) => (
-                <option key={q} value={q}>
-                  {QUALITY_NAMES[q]}
-                </option>
-              ))}
-            </select>
-          </label>
+            <Select
+              ariaLabel="Графіка"
+              value={quality}
+              options={qualities.map((q) => ({ value: q, label: QUALITY_NAMES[q] }))}
+              onChange={pickQuality}
+            />
+          </span>
           <label className="edu-pc-switch">
             <input type="checkbox" checked={allTags} onChange={(e) => setAllTags(e.target.checked)} />
-            Назви гнізд
+            Назви роз'ємів
           </label>
           <label className="edu-pc-switch">
             <input type="checkbox" checked={showHints} onChange={(e) => setShowHints(e.target.checked)} />
@@ -323,7 +333,7 @@ export const EduPc = ({
           {infoPart ? (
             <PartInfo part={infoPart} onClose={() => build.setInfo(null)} />
           ) : (
-            step && <StepCard step={step} index={state.step} total={scenario.steps.length} />
+            step && <StepCard step={step} index={state.step} total={scenario.steps.length} look={look} />
           )}
           {/* a card that shows the mistake itself needs no second copy of it */}
           <ToastLine toast={(cardStep && mistakeNote) || infoPart ? null : build.toast} />
