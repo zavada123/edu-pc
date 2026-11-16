@@ -8,10 +8,17 @@ export declare const StepList: ({ scenario, state }: {
     scenario: Scenario;
     state: BuildState;
 }) => import("react").JSX.Element;
-export declare const StepCard: ({ step, index, total }: {
+/** One part an «inspect» step asks the student to look at, and whether they already did. */
+export interface LookItem {
+    readonly id: string;
+    readonly name: string;
+    readonly done: boolean;
+}
+export declare const StepCard: ({ step, index, total, look }: {
     step: Step;
     index: number;
     total: number;
+    look: ReadonlyArray<LookItem>;
 }) => import("react").JSX.Element;
 export declare const QuestionCard: ({ step, question, onAnswer }: {
     step: Step;

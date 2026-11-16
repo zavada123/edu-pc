@@ -6,7 +6,7 @@ import type { MemoryKind, Part, PartKind, Turn } from "./parts.ts"
  */
 export interface Slot {
   readonly id: string
-  /** The name the student sees: «Слот DIMM A2», «Гніздо HDMI», «Кошик „Показує результат“». */
+  /** The name the student sees: «Слот DIMM A2», «Роз'єм HDMI», «Кошик „Показує результат“». */
   readonly label: string
   /** A short name for the tag over the slot in 3D, where slots stand close together: «A2». Defaults to `label`. */
   readonly tag?: string
