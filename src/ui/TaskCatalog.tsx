@@ -2,6 +2,8 @@ import { summaryOf, topicGroups, topicOf } from "../core/catalog.ts"
 import { TOPIC_NAMES, type Scenario } from "../core/scenario.ts"
 import "./tokens.css"
 import "./catalog.css"
+import "./rich-text.css"
+import { RichText } from "./RichText.tsx"
 
 interface Props {
   readonly scenarios: ReadonlyArray<Scenario>
@@ -74,7 +76,9 @@ export const TaskCatalog = ({ scenarios, solved, current, onPick, label = "За�
                     )}
                   </span>
                   <b className="edu-pc-cat-title">{s.title}</b>
-                  <small className="edu-pc-cat-summary">{summaryOf(s)}</small>
+                  <small className="edu-pc-cat-summary">
+                    <RichText text={summaryOf(s)} />
+                  </small>
                   <span className="edu-pc-cat-steps">{steps(s.steps.length)}</span>
                 </button>
               )
