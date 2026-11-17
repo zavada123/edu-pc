@@ -1,4 +1,4 @@
-import { Box3, BoxGeometry, CatmullRomCurve3, CylinderGeometry, Group, Mesh, Quaternion, TubeGeometry, Vector3 } from "three"
+import { Box3, CatmullRomCurve3, CylinderGeometry, ExtrudeGeometry, Group, Mesh, Path, Quaternion, Shape, ShapeGeometry, TubeGeometry, Vector3 } from "three"
 import type { PartKind } from "../core/parts.ts"
 import { grade8Case } from "../scenarios/grade8-case.ts"
 import { grade8Club } from "../scenarios/grade8-club.ts"
@@ -22,7 +22,7 @@ import {
   speakers
 } from "./devices.ts"
 import { M, mat, shadowed } from "./kit.ts"
-import { CASE_SIZE, GRADE8_BOARD, grade8CaseLayout, grade8DeskLayout, type SlotPose, TOWER_AT } from "./layout.ts"
+import { BOARD_IN_CASE, CASE_SIZE, GRADE8_BOARD, grade8CaseLayout, grade8DeskLayout, type SlotPose, TOWER_AT } from "./layout.ts"
 import { buildPart } from "./parts.ts"
 import { type ConnectorKind, PLUGS } from "./ports.ts"
 import { REAR_FAN, type RouteStep, runRoute, TRAY_Y } from "./routes.ts"
@@ -132,15 +132,41 @@ const standIn = (real: Group, code: Group): Group => {
  * The I/O shield in the realistic case's back wall: the plate round the board's rear ports. It fills the
  * opening (x, y in case coordinates, measured on the case's file) round the ports, which come through it.
  */
-const IO_SHIELD = { x: [-18.55, -2.2], y: [2.0, 6.5], z: 21.66 } as const
+const IO_SHIELD = { x: [-18.55, -2.2], y: [2.0, 6.5], z: 21.66, thick: 0.08 } as const
 
-const withIoShield = (real: Group): Group => {
+/**
+ * The hole the board's rear port block comes through, in case x and height above the board (measured on the
+ * board's file: its I/O cover from the antennas to the audio jacks). Without it the plate hides the ports.
+ */
+const IO_BLOCK = { x: [-18.0, -4.25], y: [-0.1, 3.6] } as const
+
+/**
+ * The back of the hole, just behind the ports' faces (the deepest, HDMI and DisplayPort, are at z 20.18): the
+ * port block's own cover has gaps between its ports, so without it the board's inside shows through them.
+ */
+const IO_BACKING_Z = 20.05
+
+/** The shield plate with the port block's hole cut out, in the case's back wall. */
+const ioShieldPlate = (): Mesh => {
   const [x0, x1] = IO_SHIELD.x
   const [y0, y1] = IO_SHIELD.y
-  const plate = new Mesh(new BoxGeometry(x1 - x0, y1 - y0, 0.08), mat("#8d939a", { metal: 0.85, rough: 0.4 }))
-  plate.position.set((x0 + x1) / 2, (y0 + y1) / 2, IO_SHIELD.z)
-  plate.receiveShadow = true
-  real.add(plate, trayGrommets(TRAY_Y, true), rearFan())
+  const boardY = BOARD_IN_CASE[1]
+  const plate = new Shape().moveTo(x0, y0).lineTo(x1, y0).lineTo(x1, y1).lineTo(x0, y1).closePath()
+  const [hx0, hx1] = IO_BLOCK.x
+  const hy0 = Math.max(y0 + 0.01, boardY + IO_BLOCK.y[0])
+  const hy1 = Math.min(y1 - 0.01, boardY + IO_BLOCK.y[1])
+  plate.holes.push(new Path().moveTo(hx0, hy0).lineTo(hx0, hy1).lineTo(hx1, hy1).lineTo(hx1, hy0).closePath())
+  const mesh = new Mesh(new ExtrudeGeometry(plate, { depth: IO_SHIELD.thick, bevelEnabled: false }), mat("#8d939a", { metal: 0.85, rough: 0.4 }))
+  mesh.position.z = IO_SHIELD.z - IO_SHIELD.thick / 2
+  mesh.receiveShadow = true
+  const backing = new Mesh(new ShapeGeometry(new Shape().moveTo(hx0, hy0).lineTo(hx1, hy0).lineTo(hx1, hy1).lineTo(hx0, hy1).closePath()), mat("#5d6268", { metal: 0.6, rough: 0.6 }))
+  backing.position.z = IO_BACKING_Z - mesh.position.z
+  mesh.add(backing)
+  return mesh
+}
+
+const withIoShield = (real: Group): Group => {
+  real.add(ioShieldPlate(), trayGrommets(TRAY_Y, true), rearFan())
   return real
 }
 
