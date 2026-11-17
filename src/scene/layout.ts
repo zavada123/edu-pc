@@ -309,7 +309,8 @@ export const grade8DeskLayout: SceneLayout = {
  */
 export const CASE_SIZE: Vec3 = [43, 21, 45]
 export const CASE_FLOOR = 1
-const STANDOFF = 0.6
+/** The board stands on 6 mm standoffs on the realistic case's tray (y 1.6, see routes.ts): its rear ports then fill the I/O shield. */
+const STANDOFF = 1.2
 /**
  * Where our board's centre lands in the case, and its quarter turn there (3: the rear panel faces the back).
  * Its ports reach into the I/O shield in the case's back wall, as on a real build, and its graphics card's

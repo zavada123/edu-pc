@@ -79,7 +79,8 @@ describe("cable routes in the case", () => {
           expect(p.y - r, `${c.slot} leg ${i}`).toBeGreaterThanOrEqual(SIDE_WALL_Y + 0.02)
           const top = trayTop(p.x, p.z)
           // a leg lying behind the tray, not one going through a grommet
-          if (top !== null && a.y < top && b.y < top && Math.abs(a.y - b.y) < 1e-6) expect(p.y + r, `${c.slot} leg ${i}`).toBeLessThanOrEqual(top - 0.14)
+          // (in a grommet it is going through the rubber)
+          if (top !== null && !inGrommet(p) && a.y < top && b.y < top && Math.abs(a.y - b.y) < 1e-6) expect(p.y + r, `${c.slot} leg ${i}`).toBeLessThanOrEqual(top - 0.14)
         }
       }
     }
