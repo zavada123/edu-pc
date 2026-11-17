@@ -1,6 +1,7 @@
 import { type Scenario } from "../core/scenario.ts";
 import "./tokens.css";
 import "./catalog.css";
+import "./rich-text.css";
 interface Props {
     readonly scenarios: ReadonlyArray<Scenario>;
     /** Ids of done exercises: they get a check mark. */

@@ -13,6 +13,8 @@ import { useBuild, type BuildCallbacks } from "./useBuild.ts"
 import { Select } from "./Select.tsx"
 import "./tokens.css"
 import "./edu-pc.css"
+import "./rich-text.css"
+import { RichText } from "./RichText.tsx"
 
 const DONE_DELAY_MS = 2600
 
@@ -326,7 +328,7 @@ export const EduPc = ({
           <div className="edu-pc-view" ref={hostRef} />
           {sceneError && <p className="edu-pc-error">{sceneError}</p>}
           <p className="edu-pc-keys" aria-hidden="true">
-            Камера: W A S D — літати, стрілки — повертати, + і − — наближати
+            <RichText text="Камера: [k]W[/k] [k]A[/k] [k]S[/k] [k]D[/k] — літати, стрілки — повертати, [k]+[/k] і [k]−[/k] — наближати" />
           </p>
           {/* one message at a time: a part's card stands in for the step card until it is closed */}
           {infoPart ? (

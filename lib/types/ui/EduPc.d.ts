@@ -6,6 +6,7 @@ import type { SceneHandle } from "../scene/PcScene.ts";
 import { type BuildCallbacks } from "./useBuild.ts";
 import "./tokens.css";
 import "./edu-pc.css";
+import "./rich-text.css";
 export interface EduPcProps extends BuildCallbacks {
     readonly scenario: Scenario;
     /** Where the scenario's slots are in 3D. Defaults to the built-in layout for the scenario's id. */

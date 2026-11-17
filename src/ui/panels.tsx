@@ -4,6 +4,7 @@ import type { MemoryKind, Part } from "../core/parts.ts"
 import type { Report } from "../core/progress.ts"
 import type { Question, Scenario, SortStep, Step, UpgradeStep } from "../core/scenario.ts"
 import { formatMinutes, montageMinutes, upgraded } from "../core/upgrade.ts"
+import { RichText } from "./RichText.tsx"
 import type { Held, Toast } from "./useBuild.ts"
 
 /** The steps down the side: done, current, still ahead, with mistakes per step. */
@@ -42,7 +43,9 @@ export const StepCard = ({ step, index, total, look }: { step: Step; index: numb
       Крок {index + 1} з {total}
     </p>
     <h2 className="edu-pc-card-title">{step.title}</h2>
-    <p className="edu-pc-card-text">{step.explain}</p>
+    <p className="edu-pc-card-text">
+      <RichText text={step.explain} />
+    </p>
     {look.length > 0 && (
       <>
         <p className="edu-pc-look-count">
@@ -93,11 +96,13 @@ export const QuestionCard = ({
     <div className="edu-pc-overlay" role="dialog" aria-modal="true" aria-labelledby="edu-pc-q">
       <div className="edu-pc-question">
         <p className="edu-pc-card-count">Спершу дай відповідь</p>
-        <h2 id="edu-pc-q">{question.text}</h2>
+        <h2 id="edu-pc-q">
+          <RichText text={question.text} />
+        </h2>
         <div className="edu-pc-answers">
           {answers.map((a) => (
             <button key={a} type="button" className="edu-pc-answer" onClick={() => onAnswer(a)}>
-              {a}
+              <RichText text={a} />
             </button>
           ))}
         </div>
@@ -183,7 +188,9 @@ export const PartInfo = ({ part, onClose }: { part: Part; onClose: () => void })
   <aside className="edu-pc-info" aria-live="polite" aria-label={`Деталь: ${part.name}`}>
     <p className="edu-pc-info-kind">Деталь</p>
     <h3>{part.name}</h3>
-    <p>{part.role}</p>
+    <p>
+      <RichText text={part.role} />
+    </p>
     <button type="button" className="edu-pc-info-ok" onClick={onClose}>
       Зрозуміло
     </button>
@@ -193,7 +200,7 @@ export const PartInfo = ({ part, onClose }: { part: Part; onClose: () => void })
 export const ToastLine = ({ toast }: { toast: Toast | null }) =>
   toast ? (
     <p key={toast.key} className={`edu-pc-toast tone-${toast.tone}`} role={toast.tone === "error" ? "alert" : "status"}>
-      {toast.text}
+      <RichText text={toast.text} />
     </p>
   ) : null
 
@@ -288,7 +295,11 @@ export const UpgradeCard = ({
           Вибрано на {spent} тис. грн із {step.budget}
           {tried ? ` · остання перевірка: ${tried}` : ""}
         </p>
-        {note && <p className="edu-pc-note">{note}</p>}
+        {note && (
+        <p className="edu-pc-note">
+          <RichText text={note} />
+        </p>
+      )}
         <button type="button" className="edu-pc-primary" disabled={chosen.length === 0} onClick={check}>
           Замінити й перевірити
         </button>
@@ -340,7 +351,11 @@ export const SortCard = ({
           )
         })}
       </ul>
-      {note && <p className="edu-pc-note">{note}</p>}
+      {note && (
+        <p className="edu-pc-note">
+          <RichText text={note} />
+        </p>
+      )}
     </div>
   </div>
 )
