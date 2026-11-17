@@ -1,4 +1,4 @@
-import { gradeGroups, summaryOf, topicOf } from "../core/catalog.ts"
+import { summaryOf, topicGroups, topicOf } from "../core/catalog.ts"
 import { TOPIC_NAMES, type Scenario } from "../core/scenario.ts"
 import "./tokens.css"
 import "./catalog.css"
@@ -25,9 +25,9 @@ const steps = (n: number): string => {
   return `${n} кроків`
 }
 
-/** The exercises as cards, grouped by grade: kind, title, what to do, the number of steps and a check mark when done. */
+/** The exercises as cards, grouped by topic: kind, title, what to do, the number of steps and a check mark when done. */
 export const TaskCatalog = ({ scenarios, solved, current, onPick, label = "Завдання тренажера «Збери комп'ютер»" }: Props) => {
-  const groups = gradeGroups(scenarios, solved)
+  const groups = topicGroups(scenarios, solved)
   const done = groups.reduce((n, g) => n + g.done, 0)
   let number = 0
   return (
@@ -41,9 +41,9 @@ export const TaskCatalog = ({ scenarios, solved, current, onPick, label = "За�
         </span>
       </div>
       {groups.map((g) => (
-        <section key={g.grade} className="edu-pc-cat-group" aria-labelledby={`edu-pc-cat-grade-${g.grade}`}>
+        <section key={g.topic} className="edu-pc-cat-group" aria-labelledby={`edu-pc-cat-topic-${g.topic}`}>
           <div className="edu-pc-cat-head">
-            <h3 id={`edu-pc-cat-grade-${g.grade}`}>{g.grade > 0 ? `${g.grade} клас` : "Завдання"}</h3>
+            <h3 id={`edu-pc-cat-topic-${g.topic}`}>{TOPIC_NAMES[g.topic]}</h3>
             <span className="edu-pc-cat-progress">
               {g.done} з {g.items.length}
             </span>

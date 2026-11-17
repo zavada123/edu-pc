@@ -228,15 +228,6 @@
   font-size: 17px;
   font-weight: 650;
 }
-.edu-pc-grade {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--pc-accent-soft);
-  color: var(--pc-accent);
-  font-size: 13px;
-}
 .edu-pc {
   /* The site-styled dropdown (select.css) in the trainer's colors. */
   --edu-select-bg: var(--pc-panel);
@@ -929,7 +920,7 @@
   color: var(--edu-pink-700);
   font-weight: 600;
 }
-/* Task cards grouped by grade. Classes start with `edu-pc-cat-` so the catalog can live inside any page; colors from tokens.css. */
+/* Task cards grouped by topic. Classes start with `edu-pc-cat-` so the catalog can live inside any page; colors from tokens.css. */
 
 .edu-pc-cat {
   display: flex;
