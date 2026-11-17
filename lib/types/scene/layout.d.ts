@@ -1,6 +1,7 @@
 import type { PartKind } from "../core/parts.ts";
-/** Board coordinates are centimetres: x to the right, z towards the student, y up from the desk. */
-export type Vec3 = readonly [number, number, number];
+import { type ConnectorKind, type DeviceFrame, type Port, type Vec3 } from "./ports.ts";
+import { type RouteStep } from "./routes.ts";
+export type { Vec3 } from "./ports.ts";
 /** Where a part stands once it is placed in a slot, and the click area around the slot. */
 export interface SlotPose {
     /** Bottom centre of the placed part; for a plug, the middle of its tip. */
@@ -22,6 +23,19 @@ export interface SlotPose {
     readonly roll?: number;
     /** Tilt of a plug around x, in radians: π/2 lays a plug made to go in from above on its side, going in towards -z. */
     readonly pitch?: number;
+    /**
+     * For a plug in a port from the port map: the turn that seats it (a quaternion, x y z w), which kind of
+     * connector it is (that picks the plug's model), and the middle of the click area round socket and plug.
+     * A pose with `orient` ignores `yaw`, `pitch` and `roll`.
+     */
+    readonly orient?: readonly [number, number, number, number];
+    readonly connector?: ConnectorKind;
+    readonly areaAt?: Vec3;
+    /**
+     * The cable's way from the plug to its other end, one axis at a time (see routes.ts). It starts where the
+     * cable leaves the plug straight and ends at the other plug's lead, or at `cableFrom`.
+     */
+    readonly route?: ReadonlyArray<RouteStep>;
     /** Shrink the placed part to fit the area, as a big device in a sorting basket. */
     /**
      * A cover over other slots (the case's side panel over the whole inside): it takes the pointer only while
@@ -34,6 +48,8 @@ export interface SlotPose {
     /** Slots of one basket share a group: a tap on a full spot puts the part in a free one. */
     readonly group?: string;
 }
+/** The middle of a slot's click area: given for a port, otherwise standing on the slot's point. */
+export declare const zoneCentre: (pose: SlotPose) => Vec3;
 /** The socket lever: its pivot, and which value means «up». */
 export interface LeverPose {
     readonly control: string;
@@ -152,32 +168,26 @@ export declare const DIMM_LENGTH = 13.3;
 export declare const DIMM_KEY = 1.3;
 /** Our board in its own coordinates: where its connectors are, x and z. */
 export declare const BOARD_CONNECTORS: {
-    readonly atx24: readonly [11.5, -5.1];
-    readonly eps8: readonly [-6.5, -14.8];
-    readonly sata: readonly [11.4, 7.5];
     readonly pcieX16: readonly [-3.3, 2.9];
     readonly pcieX1: readonly [-6.6, 5];
-    readonly fPanel: readonly [10.6, 14.6];
-    readonly hdAudio: readonly [-5.4, 14.6];
-    readonly usb3: readonly [11.5, 5.3];
-    readonly chaFan: readonly [-6.4, -1.2];
 };
 /** The board's mounting holes, x and z: the case has a brass standoff under each. */
 export declare const BOARD_HOLES: ReadonlyArray<readonly [number, number]>;
-/**
- * The outer face of the rear panel on the board, along x, and the middle of each port: z along the panel
- * and y above the board. As on a real board, a port's long side points away from the board (along y).
- */
-export declare const REAR_FACE_X = -12.75;
+export declare const REAR_FACE_X: number;
 export declare const REAR_PORTS: {
-    readonly usb1: readonly [-5.6, 0.6];
-    readonly usb2: readonly [-5.6, 1.35];
-    readonly hdmi: readonly [-7.5, 0.5];
+    readonly usb1: readonly [number, number];
+    readonly usb2: readonly [number, number];
+    readonly hdmi: readonly [number, number];
     readonly lan: readonly [-1.3, 2.6];
-    readonly usb3: readonly [-3.6, 0.6];
-    readonly usb4: readonly [-3.6, 1.35];
+    readonly usb3: readonly [number, number];
+    readonly usb4: readonly [number, number];
 };
 export declare const GRADE8_BOARD: BoardFace;
+/**
+ * The slot of a port from the port map, wherever its device stands: the plug's place and turn, the click area
+ * round socket and plug, and a look at it from the side the plug comes from.
+ */
+export declare const portSlot: (port: Port, frame: DeviceFrame, extra?: Partial<SlotPose>) => SlotPose;
 /** Layout of the grade 8 desk scenario: the bare board on the mat. */
 export declare const grade8DeskLayout: SceneLayout;
 /**
@@ -196,19 +206,16 @@ export declare const BOARD_IN_CASE: Vec3;
 export declare const BOARD_TURN_IN_CASE = 3;
 /** A point on our board (board coordinates) in case coordinates, once the board is in the case. */
 export declare const onBoard: (x: number, y: number, z: number) => Vec3;
-/** Where the graphics card's own connectors end up: power on its top edge, HDMI on its bracket. */
-export declare const GPU_POWER_LOCAL: Vec3;
-export declare const GPU_HDMI_LOCAL: Vec3;
-/** The disk's connectors on its back end: data and power. */
-export declare const HDD_DATA_LOCAL: Vec3;
-export declare const HDD_POWER_LOCAL: Vec3;
-export declare const PSU_SOCKETS: {
-    readonly psuPcie1: readonly [15.8, 10.05, number];
-    readonly psuPcie2: readonly [14.7, 10.05, number];
-    readonly psuSata1: readonly [15.7, 12.5, number];
-    readonly psuSata2: readonly [14.7, 12.5, number];
+/** Where each device stands in the case: its ports go with it (see ports.ts). */
+export declare const CASE_FRAMES: {
+    readonly board: DeviceFrame;
+    readonly psu: DeviceFrame;
+    readonly hdd: DeviceFrame;
+    readonly gpu: DeviceFrame;
 };
 export declare const grade8CaseLayout: SceneLayout;
+/** Where the power supply's socket face is, along z in the case. */
+export declare const PSU_FACE_IN_CASE: number;
 /** The case scenario's computer, built and switched on, with markers for the data path and a smartphone on the desk. */
 export declare const grade8LabLayout: SceneLayout;
 /**

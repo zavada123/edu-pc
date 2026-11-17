@@ -1,6 +1,7 @@
-import type { Group } from "three"
+import { BoxGeometry, Group, Mesh } from "three"
 import { M, box, cylinder, fanRotor, group, mat, mergeStatic, rounded, shadowed } from "./kit.ts"
 import { BOARD_HOLES, BOARD_IN_CASE, CASE_FLOOR, CASE_SIZE, onBoard } from "./layout.ts"
+import { GROMMETS, REAR_FAN } from "./routes.ts"
 import { fanGrilleTexture, honeycombTexture } from "./textures.ts"
 
 /**
@@ -33,17 +34,17 @@ const wallWithHoles = (outer: Rect, holes: ReadonlyArray<Rect>, z: number, depth
   return g
 }
 
-/** A 12 cm case fan lying in the x–z plane, blowing along y; turn it to face where it should. */
-const caseFan = (): Group => {
+/** A case fan `s` cm across lying in the x–z plane, blowing along y; turn it to face where it should. */
+export const caseFan = (s = 12): Group => {
   const frame = M.satinBlack
-  const s = 12
+  const k = s / 12
   const g = group(
-    box([s, 2.5, 0.8], frame, 0, 0, -s / 2 + 0.4),
-    box([s, 2.5, 0.8], frame, 0, 0, s / 2 - 0.4),
-    box([0.8, 2.5, s], frame, -s / 2 + 0.4, 0, 0),
-    box([0.8, 2.5, s], frame, s / 2 - 0.4, 0, 0)
+    box([s, 2.5 * k, 0.8 * k], frame, 0, 0, -s / 2 + 0.4 * k),
+    box([s, 2.5 * k, 0.8 * k], frame, 0, 0, s / 2 - 0.4 * k),
+    box([0.8 * k, 2.5 * k, s], frame, -s / 2 + 0.4 * k, 0, 0),
+    box([0.8 * k, 2.5 * k, s], frame, s / 2 - 0.4 * k, 0, 0)
   )
-  g.add(fanRotor(5.4, 7, mat("#2a2d33", { rough: 0.4 }), mat("#1b1d21", { rough: 0.4 }), 1.4))
+  g.add(fanRotor(5.4 * k, 7, mat("#2a2d33", { rough: 0.4 }), mat("#1b1d21", { rough: 0.4 }), 1.4 * k))
   return g
 }
 
@@ -66,7 +67,7 @@ export const buildCase = (): Group => {
     box([W - 6, H - 5, 0.1], mat("#ffffff", { map: honeycombTexture("#24262a"), rough: 0.6 }), 0, CASE_FLOOR + 2, z0 - 0.05),
     // the back wall with its holes, slot covers and the vent of the rear fan
     wallWithHoles([x0 + WALL, CASE_FLOOR, -x0 - WALL, H], [IO_HOLE, SLOTS_HOLE, PSU_HOLE], -z0 - WALL / 2, WALL),
-    box([12, 12, 0.1], mat("#ffffff", { map: fanGrilleTexture(), rough: 0.6 }), -13.5, 7.5, -z0 + 0.06)
+    box([REAR_FAN.size, REAR_FAN.size, 0.1], mat("#ffffff", { map: fanGrilleTexture(), rough: 0.6 }), REAR_FAN.at[0], REAR_FAN.at[1] - REAR_FAN.size / 2, -z0 + 0.06)
   )
   // covers on the slots the graphics card leaves free
   for (let i = 0; i < 5; i++) g.add(box([0.9, 13, 0.2], M.aluminium, 4.4 + i * 1.05, 1.9, -z0 - 0.1))
@@ -85,16 +86,16 @@ export const buildCase = (): Group => {
   // the cage for the disk, at the front
   g.add(box([0.3, 3.4, 15.6], M.aluminium, 8.6, CASE_FLOOR, -13.2), box([0.3, 3.4, 15.6], M.aluminium, 19.6, CASE_FLOOR, -13.2))
   // fans: one at the back blowing out, two at the front blowing in
-  const rear = caseFan()
+  const rear = caseFan(REAR_FAN.size)
   rear.rotation.x = Math.PI / 2
-  rear.position.set(-13.5, 13.5, -z0 - WALL - 2.5)
+  rear.position.set(...REAR_FAN.at)
   const front1 = caseFan()
   front1.rotation.x = -Math.PI / 2
   front1.position.set(-13.5, 11, z0 + WALL + 2.5)
   const front2 = caseFan()
   front2.rotation.x = -Math.PI / 2
   front2.position.set(-0.5, 11, z0 + WALL + 2.5)
-  g.add(rear, front1, front2)
+  g.add(rear, front1, front2, trayGrommets(CASE_FLOOR, false))
   // front panel ports and the power button's surround, on the top wall near the front
   g.add(rounded([0.3, 5, 9], 0.1, M.blackPlastic, x0 - 0.15, 8, -16.5))
   g.add(box([0.1, 0.5, 1.3], M.blueUsb, x0 - 0.32, 9, -14.2), box([0.1, 0.5, 1.3], M.blueUsb, x0 - 0.32, 10.2, -14.2))
@@ -116,4 +117,29 @@ export const powerButton = (): Group => {
   // cylinders stand along y; lay the button on its side so its face points -x
   g.rotation.z = Math.PI / 2
   return shadowed(g)
+}
+
+/**
+ * The rubber grommets in the board tray that cables go through (see routes.ts). The case's model has the long
+ * ones in front of the board itself: on it only the others are drawn, on its tray (`atY`).
+ */
+export const trayGrommets = (atY: number, onModel: boolean): Group => {
+  const g = new Group()
+  const rubber = mat("#121316", { rough: 0.9 })
+  const slit = mat("#050506", { rough: 1 })
+  for (const { x, z, modelHasIt } of GROMMETS) {
+    if (onModel && modelHasIt) continue
+    const w = x[1] - x[0]
+    const d = z[1] - z[0]
+    const cx = (x[0] + x[1]) / 2
+    const cz = (z[0] + z[1]) / 2
+    // a rubber frame lying on the tray, with the dark slit the cables go into
+    const frame = new Mesh(new BoxGeometry(w + 0.3, 0.08, d + 0.3), rubber)
+    frame.position.set(cx, atY + 0.04, cz)
+    const hole = new Mesh(new BoxGeometry(w, 0.02, d), slit)
+    hole.position.set(cx, atY + 0.085, cz)
+    frame.receiveShadow = true
+    g.add(frame, hole)
+  }
+  return g
 }

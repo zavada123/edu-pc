@@ -45,7 +45,7 @@ import { flyStep } from "./fly.ts"
 import { renderIcons } from "./icons.ts"
 import { cardboardBox, crate } from "./devices.ts"
 import { noDiskTexture, signTexture } from "./textures.ts"
-import { CASE_FLOOR, GRADE8_BOARD, type LoosePose, type SceneLayout, type SlotPose, type Vec3 } from "./layout.ts"
+import { CASE_FLOOR, GRADE8_BOARD, type LoosePose, type SceneLayout, type SlotPose, type Vec3, zoneCentre } from "./layout.ts"
 
 /** How high a cable hangs loose in the case while its second end is not plugged in yet. */
 const CASE_LOOSE_Y = CASE_FLOOR + 0.6
@@ -491,7 +491,7 @@ export class PcScene implements SceneHandle {
     if (!pose) return
     const geometry = new BoxGeometry(...pose.area)
     const mesh = new Mesh(geometry, new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }))
-    mesh.position.set(pose.at[0], pose.at[1] + pose.area[1] / 2 - 0.3, pose.at[2])
+    mesh.position.set(...zoneCentre(pose))
     mesh.userData.slot = id
     const edges = new LineSegments(new EdgesGeometry(geometry), new LineBasicMaterial({ transparent: true, opacity: 0 }))
     edges.position.copy(mesh.position)
@@ -566,7 +566,8 @@ export class PcScene implements SceneHandle {
     }
     // the second end is not in yet: the cable hangs down short of the socket it goes to
     const from = pose.cableFrom
-    const loose: SlotPose = from ? { ...pose, cableFrom: [from[0] - 2, CASE_LOOSE_Y, from[2] - 5] } : pose
+    const { route: _route, ...unrouted } = pose
+    const loose: SlotPose = from ? { ...unrouted, cableFrom: [from[0] - 2, CASE_LOOSE_Y, from[2] - 5] } : pose
     return { key: `${slotId}|loose`, build: () => placedModel(part.kind, loose, turn) }
   }
 
@@ -793,7 +794,8 @@ export class PcScene implements SceneHandle {
       const hover = this.hovered === area.id
       const hint = hintSlots.has(area.id)
       const want = hover || fits || (heldKind === undefined && (hint || (this.allTags && free)))
-      p.set(pose.at[0], pose.at[1] + pose.area[1] - 0.3, pose.at[2])
+      const [cx, cy, cz] = zoneCentre(pose)
+      p.set(cx, cy + pose.area[1] / 2, cz)
       this.bench.localToWorld(p)
       p.project(this.camera)
       const x = ((p.x + 1) / 2) * w

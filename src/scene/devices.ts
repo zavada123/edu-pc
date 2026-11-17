@@ -1,6 +1,6 @@
 import { CanvasTexture, type Group, type Material, Mesh, MeshStandardMaterial, PlaneGeometry, Vector3 } from "three"
 import { M, box, boxes, cylinder, fanRotor, group, mat, rounded } from "./kit.ts"
-import { GPU_HDMI_LOCAL, GPU_POWER_LOCAL, HDD_DATA_LOCAL, HDD_POWER_LOCAL } from "./layout.ts"
+import { type ConnectorKind, GPU_BRACKET_PORTS_Y, GPU_PORTS, HDD_PORTS, PLUGS, PSU_FACE_Z, PSU_HOLE, PSU_PORTS } from "./ports.ts"
 import { desktopTexture, fanGrilleTexture, honeycombTexture, pinGridTexture, signTexture, stickerTexture, tagTexture } from "./textures.ts"
 
 /**
@@ -39,24 +39,93 @@ const cableOut = (g: Group, at: Vector3, dir: Vector3): Group => {
 
 // ---------- power supply ----------
 
-/** A power supply: 8.6 × 15 × 14 cm. Its back (+z) has the mains socket and switch; its fan faces +x. */
+/**
+ * A power supply: 8.6 × 15 × 15.2 cm. Its back (+z) has the mains socket and switch; its fan faces +x; its
+ * front (-z) faces the inside of the case and carries the panel of sockets (`psuPanel`).
+ */
 export const powerSupply = (): Group => {
   const body = mat("#202226", { rough: 0.45, metal: 0.35 })
   const back = printed(honeycombTexture(), 0.5)
   const fanSide = printed(fanGrilleTexture(), 0.5)
-  const g = group(box([8.6, 15, 14], faces(body, { pz: back, px: fanSide }), 0, 0, 0))
+  const g = group(box([8.6, 15, 15.2], faces(body, { pz: back, px: fanSide }), 0, 0, 0))
   // the mains socket and the switch on the back
-  g.add(box([2.6, 1.9, 0.2], M.blackPlastic, -1.6, 2.5, 7))
-  g.add(box([1.8, 1.1, 0.05], M.chip, -1.6, 2.9, 7.2))
-  g.add(rounded([1.1, 1.6, 0.4], 0.1, M.blackPlastic, -1.6, 5.2, 7))
-  g.add(box([0.8, 0.6, 0.12], M.red, -1.6, 5.7, 7.35))
-  // the sticker on its side that faces up, and the panel with cable sockets on its inner side (-x)
+  g.add(box([2.6, 1.9, 0.2], M.blackPlastic, -1.6, 2.5, 7.6))
+  g.add(box([1.8, 1.1, 0.05], M.chip, -1.6, 2.9, 7.8))
+  g.add(rounded([1.1, 1.6, 0.4], 0.1, M.blackPlastic, -1.6, 5.2, 7.6))
+  g.add(box([0.8, 0.6, 0.12], M.red, -1.6, 5.7, 7.95))
+  // the sticker on its side that faces up
   g.add(decal(8, 5.4, printed(stickerTexture(["EDU POWER 650 Вт", "80 PLUS Bronze · 230 В"])), "y", 0, 15.01, -2.5))
-  g.add(box([0.15, 6, 11], M.chip, -4.37, 1.2, -0.5))
-  const sockets: Array<[number, number, number]> = []
-  for (let i = 0; i < 6; i++) sockets.push([-4.46, 2 + (i % 2) * 2.4, -4.5 + Math.floor(i / 2) * 3.2])
-  g.add(boxes([0.05, 1.2, 2.2], M.blackPlastic, sockets))
+  g.add(psuPanel())
   return g
+}
+
+/**
+ * The panel of sockets on the power supply's front (-z): two HDD/SATA sockets and two PCI-E sockets, each a
+ * red housing sunk into the panel with its pin holes, a clear printed name over each pair, and the round
+ * grommet the built-in cables come out of. It goes on the realistic power supply too, over its blurred picture
+ * of sockets, so the sockets are where the port map says. The names read the right way from inside the case.
+ */
+export const psuPanel = (): Group => {
+  const face = PSU_FACE_Z
+  const panelMat = mat("#16171a", { rough: 0.6, metal: 0.2 })
+  const g = group(box([8.0, 13.6, 0.2], panelMat, 0, 1.0, face + 0.12))
+  const red = mat("#b3261e", { rough: 0.5 })
+  const hole = mat("#2a0b09", { rough: 0.8 })
+  for (const port of Object.values(PSU_PORTS)) {
+    const [x, y] = port.at
+    const [l, w] = port.housing
+    const cols = port.kind === "psu8" ? 4 : 3
+    // the housing stands a little proud of the panel; its long side is up (y)
+    const housing = box([w, l, 0.3], red, x, y - l / 2, face + 0.12)
+    g.add(housing)
+    for (let c = 0; c < cols; c++)
+      for (let r = 0; r < 2; r++)
+        g.add(box([w * 0.32, (l / cols) * 0.62, 0.02], hole, x + (r - 0.5) * w * 0.46, y - l / 2 + (c + 0.19) * (l / cols), face - 0.035))
+    // the latch catch beside it
+    g.add(box([0.22, 0.5, 0.2], M.blackPlastic, x - w / 2 - 0.16, y - 0.25, face + 0.05))
+  }
+  // a name over each pair of sockets, printed as on a real supply
+  const names: Array<[string, number]> = [
+    ["HDD / SATA", PSU_PORTS.sata1.at[1] + PSU_PORTS.sata1.housing[0] / 2 + 0.55],
+    ["PCI-E", PSU_PORTS.pcie1.at[1] + PSU_PORTS.pcie1.housing[0] / 2 + 0.55]
+  ]
+  for (const [text, y] of names) {
+    const label = new Mesh(new PlaneGeometry(5.6, 0.9), new MeshStandardMaterial({ map: panelLabelTexture(text), transparent: true, roughness: 0.6 }))
+    // the panel faces -z: the label faces that way too, upright, read from inside the case
+    label.rotation.y = Math.PI
+    label.position.set(0, y, face - 0.02)
+    g.add(label)
+  }
+  // the grommet the built-in cables leave through
+  const [hx, hy] = PSU_HOLE
+  const ring = cylinder(1.05, 0.25, M.rubber, 0, 0, 0, 32)
+  ring.rotation.x = Math.PI / 2
+  ring.position.set(hx, hy, face - 0.02)
+  const inner = cylinder(0.78, 0.27, M.chip, 0, 0, 0, 32)
+  inner.rotation.x = Math.PI / 2
+  inner.position.set(hx, hy, face - 0.03)
+  g.add(ring, inner)
+  return g
+}
+
+/** A sharp white name on a dark panel: drawn big and shrunk, so it stays crisp close up. */
+const panelLabelTexture = (text: string): CanvasTexture => {
+  const canvas = document.createElement("canvas")
+  canvas.width = 1024
+  canvas.height = 160
+  const c = canvas.getContext("2d")
+  if (c) {
+    c.clearRect(0, 0, 1024, 160)
+    c.fillStyle = "#f2f2ee"
+    c.font = "700 104px system-ui, sans-serif"
+    c.textAlign = "center"
+    c.textBaseline = "middle"
+    c.fillText(text, 512, 84)
+  }
+  const t = new CanvasTexture(canvas)
+  t.colorSpace = "srgb"
+  t.anisotropy = 8
+  return t
 }
 
 // ---------- graphics card ----------
@@ -67,7 +136,7 @@ export const powerSupply = (): Group => {
  */
 export const graphicsCard = (): Group => {
   const length = 25.6
-  const centreZ = 8.6 - length / 2
+  const centreZ = 9.0 - length / 2
   const shroud = mat("#26282d", { rough: 0.4, metal: 0.3 })
   const g = group(
     box([0.17, 0.8, 8.5], M.gold, 0, 0, 0),
@@ -86,18 +155,20 @@ export const graphicsCard = (): Group => {
     fan.position.set(3.55, 6.3, fz)
     g.add(fan)
   }
-  // the 8-pin power socket on the top edge
-  const [px, py, pz] = GPU_POWER_LOCAL
-  g.add(box([1.0, 0.8, 2.1], faces(M.blackPlastic, { py: printed(pinGridTexture(2, 4)) }), px, py - 0.8, pz))
-  // the bracket and its ports, outside the case
-  const [, hy, hz] = GPU_HDMI_LOCAL
-  const bracketZ = hz - 0.25
+  // the 8-pin power sockets on the top edge, where the port map has them
+  for (const port of [GPU_PORTS.power1, GPU_PORTS.power2]) {
+    const [px, py, pz] = port.at
+    const [l, w, d] = port.housing
+    g.add(box([w, d, l], faces(M.blackPlastic, { py: printed(pinGridTexture(2, 4)) }), px, py - d, pz))
+  }
+  // the bracket and its video ports, outside the case
+  const [hx, , hz] = GPU_PORTS.hdmi.at
+  const bracketZ = hz - 0.1
   g.add(box([4.4, 12.2, 0.1], M.aluminium, 1.6, 0, bracketZ))
-  // three video ports in a row along the bracket, each with its long side along the row
-  for (const [i, py2] of [hy, hy + 2.1, hy + 4.2].entries()) {
-    g.add(box([0.55, 1.5, 0.3], M.aluminium, GPU_HDMI_LOCAL[0], py2 - 0.75, bracketZ + 0.15))
-    g.add(box([0.3, 1.2, 0.32], M.chip, GPU_HDMI_LOCAL[0], py2 - 0.6, bracketZ + 0.16))
-    if (i === 0) g.add(box([0.3, 0.3, 0.05], M.accent, GPU_HDMI_LOCAL[0] + 0.7, py2 - 0.15, bracketZ + 0.08))
+  for (const py2 of GPU_BRACKET_PORTS_Y) {
+    const [l, w] = GPU_PORTS.hdmi.housing
+    g.add(box([w + 0.2, l + 0.2, 0.06], M.aluminium, hx, py2 - (l + 0.2) / 2, hz - 0.05))
+    g.add(box([w, l, 0.08], M.chip, hx, py2 - l / 2, hz - 0.06))
   }
   g.add(box([1.4, 6, 0.05], printed(honeycombTexture("#b9bfc5")), 3, 6, bracketZ + 0.06))
   return g
@@ -105,106 +176,131 @@ export const graphicsCard = (): Group => {
 
 // ---------- hard disk ----------
 
-/** A 3.5-inch hard disk lying flat: 10.2 × 2.6 × 14.7 cm, its connectors on the back end (+z). */
+/** A 3.5-inch hard disk lying flat, label up: 10.2 × 2.1 × 14.7 cm, its connectors low on the back end (+z). */
 export const hardDisk = (): Group => {
   const lid = mat("#b9bfc5", { metal: 0.8, rough: 0.35 })
   const g = group(
-    rounded([10.2, 2.6, 14.7], 0.2, M.aluminium),
+    rounded([10.2, 2.1, 14.7], 0.2, M.aluminium),
     box([10, 0.3, 14.5], M.greenPcb, 0, -0.01, 0),
-    rounded([9.6, 0.1, 14.1], 0.05, lid, 0, 2.6, 0),
-    decal(8, 6.2, printed(stickerTexture(["EDU HDD 2 ТБ", "7200 об/хв · SATA"])), "y", 0, 2.71, -1.6)
+    rounded([9.6, 0.1, 14.1], 0.05, lid, 0, 2.1, 0),
+    decal(8, 6.2, printed(stickerTexture(["EDU HDD 2 ТБ", "7200 об/хв · SATA"])), "y", 0, 2.21, -1.6)
   )
-  const [dx, dy, dz] = HDD_DATA_LOCAL
-  const [wx, wy, wz] = HDD_POWER_LOCAL
-  g.add(box([1.4, 0.6, 0.25], M.blackPlastic, dx, dy - 0.3, dz - 0.12))
-  g.add(box([2.6, 0.6, 0.25], M.blackPlastic, wx, wy - 0.3, wz - 0.12))
-  for (const [x, z] of [[-4.6, -6], [4.6, -6], [-4.6, 5], [4.6, 5]] as const) g.add(cylinder(0.25, 0.05, M.darkMetal, x, 2.7, z, 12))
+  // the sockets, where the port map has them: a dark housing with the key's slot
+  for (const port of Object.values(HDD_PORTS)) {
+    const [x, y, z] = port.at
+    const [l, w, d] = port.housing
+    g.add(box([l, w, d], M.blackPlastic, x, y - w / 2, z - d / 2 + 0.01))
+    g.add(box([l * 0.8, w * 0.3, 0.02], M.chip, x, y - w * 0.15, z + 0.01))
+  }
+  for (const [x, z] of [[-4.6, -6], [4.6, -6], [-4.6, 5], [4.6, 5]] as const) g.add(cylinder(0.25, 0.05, M.darkMetal, x, 2.2, z, 12))
   return g
 }
 
 // ---------- cable plugs ----------
 
+/*
+ * Every plug is built standing up, the way it goes into a socket in the board from above: the middle of the
+ * face that meets the socket at the origin, the plug going in along -y, its long side along x and its latch or
+ * key on +z. Its cable leaves the top (+y). A port's turn (see `portPose` in ports.ts) seats it in any socket.
+ * Each plug's size comes from the port map (`PLUGS`), so it matches the socket it goes into.
+ */
+
 const sleeve = mat("#141518", { rough: 0.8 })
 
-/** The 24-pin plug for the board: wide, with a latch, going into its socket from above. */
-export const atxPlug = (): Group =>
-  cableOut(
-    group(
-      rounded([5.4, 1.4, 1.3], 0.08, M.blackPlastic),
-      box([1.2, 0.5, 0.5], M.blackPlastic, 0, 0.6, 0.85),
-      boxes(
-        [0.14, 0.6, 0.14],
-        sleeve,
-        Array.from({ length: 12 }, (_, i) => [-2.4 + i * 0.44, 1.4, 0] as [number, number, number])
-      )
-    ),
-    new Vector3(0, 2, 0),
-    new Vector3(0, 1, 0)
-  )
-
-/** An 8-pin power plug for the processor or the graphics card. They look alike; only the tag differs. */
-export const eightPinPlug = (tag: "CPU" | "PCIe"): Group =>
-  cableOut(
-    group(
-      rounded([1.0, 1.2, 2.1], 0.06, M.blackPlastic),
-      box([0.4, 0.4, 0.6], M.blackPlastic, 0.6, 0.6, 0),
-      decal(0.9, 0.34, printed(tagTexture(tag)), "x", 0.51, 0.75, 0)
-    ),
-    new Vector3(0, 1.8, 0),
-    new Vector3(0, 1, 0)
-  )
-
-/** The flat L-shaped SATA power plug: it goes into the back of the disk, horizontally. */
-export const sataPowerPlug = (): Group =>
-  cableOut(group(rounded([2.4, 0.6, 1.1], 0.08, M.blackPlastic, 0, -0.3, 0.55)), new Vector3(0, 0, 1.3), new Vector3(0, 0, 1))
-
-/** The small red SATA data plug: it goes into the board's SATA port from above. */
-export const sataDataPlug = (): Group =>
-  cableOut(group(rounded([1.0, 1.1, 0.5], 0.06, M.red), box([0.8, 0.12, 0.3], M.chip, 0, 0, 0)), new Vector3(0, 1.3, 0), new Vector3(0, 1, 0))
-
-/**
- * The plug of a removable cable at the power supply's end: an 8-pin block going +z into a red socket on the
- * supply, its cable leaving towards -z, into the case.
- */
-export const psuPlug = (): Group =>
-  cableOut(
-    group(rounded([1.0, 2.0, 1.4], 0.08, M.blackPlastic, 0, -1, -0.7), box([0.3, 0.6, 0.5], M.blackPlastic, 0.6, -0.3, -0.8)),
-    new Vector3(0, 0, -1.6),
-    new Vector3(0, 0, -1)
-  )
-
-/** The thin plugs of the case's front panel: they go into the board's headers from above. */
-export const headerPlug = (kind: "panel" | "audio" | "usb"): Group => {
-  const looks: Record<typeof kind, { size: [number, number, number]; body: Material }> = {
-    panel: { size: [1.6, 0.8, 0.55], body: M.blackPlastic },
-    audio: { size: [1.2, 0.8, 0.55], body: M.blackPlastic },
-    usb: { size: [2.2, 0.9, 0.9], body: M.blueUsb }
-  }
-  const look = looks[kind]
-  const g = group(rounded(look.size, 0.06, look.body))
-  if (kind === "panel") {
-    // a strip of coloured wires going in, one per button and light
-    const wires = [M.red, M.blackPlastic, M.yellow, M.accent]
-    wires.forEach((w, i) => g.add(box([0.14, 0.4, 0.14], w, -0.45 + i * 0.3, 0.8, 0)))
-  }
-  return cableOut(g, new Vector3(0, look.size[1] + 0.3, 0), new Vector3(0, 1, 0))
+/** The wire ends on a plug's top: one short stub per wire, in rows, as a bundle leaves a real plug. */
+const wireStubs = (cols: number, rows: number, pitch: number, h: number, colours: ReadonlyArray<Material> = [sleeve]): Mesh[] => {
+  const out: Mesh[] = []
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) {
+      const colour = colours[(r * cols + c) % colours.length] ?? sleeve
+      out.push(box([pitch * 0.62, 0.22, pitch * 0.62], colour, (c - (cols - 1) / 2) * pitch, h, (r - (rows - 1) / 2) * pitch))
+    }
+  return out
 }
 
-/** An HDMI plug, pointing -z into the socket. */
-export const hdmiPlug = (): Group =>
-  cableOut(
-    group(box([1.4, 0.45, 0.8], M.aluminium, 0, -0.22, 0.4), rounded([2, 1, 2], 0.2, M.blackPlastic, 0, -0.5, 1.8)),
-    new Vector3(0, 0, 2.9),
-    new Vector3(0, 0, 1)
-  )
+const withCable = (g: Group, h: number): Group => cableOut(g, new Vector3(0, h, 0), new Vector3(0, 1, 0))
 
-/** A USB plug, pointing -z into the socket; grey for the keyboard, black for the mouse. */
-export const usbPlug = (body: Material): Group =>
-  cableOut(
-    group(box([1.2, 0.45, 0.9], M.aluminium, 0, -0.22, 0.45), rounded([1.6, 0.8, 2.2], 0.2, body, 0, -0.4, 1.95)),
-    new Vector3(0, 0, 3.1),
-    new Vector3(0, 0, 1)
+/** A power plug of `cols` × 2 square pins with a latch on +z: ATX, CPU, PCIe, the power supply's own. */
+const powerPlug = (kind: ConnectorKind, cols: number, tag?: "CPU" | "PCIe"): Group => {
+  const [l, w, h] = PLUGS[kind].size
+  const g = group(rounded([l, h, w], 0.06, M.blackPlastic))
+  // the latch: a bar standing on the +z side with its hook at the bottom
+  g.add(box([Math.min(0.42, l * 0.3), h * 0.72, 0.16], M.blackPlastic, 0, h * 0.18, w / 2 + 0.08))
+  g.add(box([Math.min(0.42, l * 0.3), 0.16, 0.12], M.blackPlastic, 0, 0.05, w / 2 + 0.2))
+  g.add(...wireStubs(cols, 2, Math.min(l / cols, w / 2), h))
+  if (tag) {
+    // the tag on the side away from the latch
+    const label = decal(Math.min(l - 0.2, 1.2), 0.38, printed(tagTexture(tag)), "z", 0, h * 0.55, -w / 2 - 0.01)
+    label.rotation.y = Math.PI
+    g.add(label)
+  }
+  return withCable(g, h + 0.22)
+}
+
+/** A thin header plug of `cols` × `rows` holes for pins, with coloured wires going in on top. */
+const headerPlug = (kind: ConnectorKind, cols: number, rows: number, body: Material, wires: ReadonlyArray<Material>): Group => {
+  const [l, w, h] = PLUGS[kind].size
+  const g = group(rounded([l, h, w], 0.05, body))
+  g.add(box([l * 0.92, 0.02, w * 0.6], M.chip, 0, h, 0))
+  g.add(...wireStubs(cols, rows, Math.min(l / cols, w / rows), h, wires))
+  return withCable(g, h + 0.22)
+}
+
+/** A SATA plug: a flat L-shaped body going in sideways into a disk or a board's side port. */
+const sataPlug = (kind: "sataData" | "sataPower", body: Material): Group => {
+  const [l, w, h] = PLUGS[kind].size
+  const g = group(rounded([l, h, w], 0.06, body))
+  // the L: a lip along one long side and down one end, as on the socket's key
+  g.add(box([l * 0.92, h * 0.5, 0.08], body, 0, 0, -w / 2 - 0.04), box([0.12, h * 0.5, w * 0.6], body, -l / 2 + 0.06, 0, 0))
+  // a grip on top where the cable goes in
+  g.add(box([l * 0.75, 0.12, w * 0.7], M.chip, 0, h, 0))
+  return withCable(g, h + 0.12)
+}
+
+/** A plug with a metal tongue going into its socket and a moulded grip: USB, HDMI. */
+const shellPlug = (kind: "usbA" | "hdmi", tongue: readonly [number, number, number], grip: Material): Group => {
+  const [l, w, h] = PLUGS[kind].size
+  const g = group(
+    // the tongue goes into the socket: below the face
+    box([tongue[0], tongue[2], tongue[1]], M.aluminium, 0, -tongue[2], 0),
+    rounded([l, h, w], 0.18, grip),
+    // the strain relief where the cable leaves
+    cylinder(PLUGS[kind].cable.r * 1.5, 0.5, grip, 0, h, 0, 16)
   )
+  return withCable(g, h + 0.5)
+}
+
+/** A plug of the given connector kind, standing up as described above. */
+export const plugModel = (kind: ConnectorKind, grip: Material = M.blackPlastic): Group => {
+  switch (kind) {
+    case "atx24":
+      return powerPlug(kind, 12)
+    case "eps8":
+      return powerPlug(kind, 4, "CPU")
+    case "pcie8":
+      return powerPlug(kind, 4, "PCIe")
+    case "psu8":
+      return powerPlug(kind, 4)
+    case "psu6":
+      return powerPlug(kind, 3)
+    case "fan4":
+      return headerPlug(kind, 4, 1, M.blackPlastic, [M.blackPlastic, M.yellow, M.accent, M.blueUsb])
+    case "fPanel":
+      return headerPlug(kind, 10, 2, M.blackPlastic, [M.red, M.blackPlastic, M.accent, M.blackPlastic, M.yellow, M.whitePlastic])
+    case "hdAudio":
+      return headerPlug(kind, 5, 2, M.blackPlastic, [M.red, M.whitePlastic, M.accent, M.blackPlastic, M.yellow])
+    case "usb3Header":
+      return headerPlug(kind, 10, 2, M.blueUsb, [M.blueUsb])
+    case "sataData":
+      return sataPlug(kind, M.red)
+    case "sataPower":
+      return sataPlug(kind, M.blackPlastic)
+    case "usbA":
+      return shellPlug(kind, [1.2, 0.45, 1.1], grip)
+    case "hdmi":
+      return shellPlug(kind, [1.0, 0.36, 0.9], grip)
+  }
+}
 
 // ---------- side panel ----------
 
