@@ -1,6 +1,7 @@
 import { type Group, type Material, Vector3 } from "three"
 import type { Slot } from "../core/scenario.ts"
 import { realModel } from "./gltf.ts"
+import { boardIoShield } from "./ioShield.ts"
 import { M, box, boxes, cylinder, group, mat, mergeStatic, rounded, seeded, shadowed } from "./kit.ts"
 import {
   BOARD_CONNECTORS,
@@ -262,7 +263,8 @@ type Poses = Readonly<Record<string, { readonly at: readonly [number, number, nu
  */
 export const buildBoard = (face: BoardFace, slots: ReadonlyArray<Slot>, poses: Poses): Group => {
   const real = realModel("motherboard")
-  if (real) return real
+  // its I/O shield is built on, as on many higher-end boards: it comes with the board
+  if (real) return real.add(boardIoShield())
   const edge = mat("#1c2024")
   const pcb = box([BOARD_W, BOARD_TOP, BOARD_D], top(mat("#ffffff", { map: boardTexture(face), rough: 0.5 }), edge))
   const g = group(pcb, decorations(face.socket))
