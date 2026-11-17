@@ -1,4 +1,4 @@
-/* Task cards grouped by grade. Classes start with `edu-pc-cat-` so the catalog can live inside any page; colors from tokens.css. */
+/* Task cards grouped by topic. Classes start with `edu-pc-cat-` so the catalog can live inside any page; colors from tokens.css. */
 
 .edu-pc-cat {
   display: flex;

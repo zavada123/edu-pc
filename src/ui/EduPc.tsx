@@ -269,7 +269,6 @@ export const EduPc = ({
     <div className={`edu-pc${full ? " is-full" : ""}`}>
       <header className="edu-pc-head">
         <h1 className="edu-pc-title">
-          {scenario.grade > 0 && <span className="edu-pc-grade">{scenario.grade} клас</span>}
           {scenario.title}
         </h1>
         <div className="edu-pc-tools">

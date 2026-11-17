@@ -11,6 +11,6 @@ interface Props {
     /** Name of the list for screen readers. */
     readonly label?: string;
 }
-/** The exercises as cards, grouped by grade: kind, title, what to do, the number of steps and a check mark when done. */
+/** The exercises as cards, grouped by topic: kind, title, what to do, the number of steps and a check mark when done. */
 export declare const TaskCatalog: ({ scenarios, solved, current, onPick, label }: Props) => import("react").JSX.Element;
 export {};

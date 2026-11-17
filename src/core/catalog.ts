@@ -1,20 +1,18 @@
 import type { Scenario, ScenarioTopic } from "./scenario.ts"
 
-/** Exercises of one grade, in library order, and how many of them are done. */
-export interface GradeGroup {
-  readonly grade: number
+/** Exercises of one topic, in library order, and how many of them are done. */
+export interface TopicGroup {
+  readonly topic: ScenarioTopic
   readonly items: ReadonlyArray<Scenario>
   readonly done: number
 }
 
-/** Exercises grouped by grade, grades ascending; `solved` gives the count of each group. */
-export const gradeGroups = (scenarios: ReadonlyArray<Scenario>, solved: ReadonlyArray<string>): ReadonlyArray<GradeGroup> =>
-  [...new Set(scenarios.map((s) => s.grade))]
-    .sort((a, b) => a - b)
-    .map((grade) => {
-      const items = scenarios.filter((s) => s.grade === grade)
-      return { grade, items, done: items.filter((s) => solved.includes(s.id)).length }
-    })
+/** Exercises grouped by topic, in the order the topics first come in the library; `solved` gives the count of each group. */
+export const topicGroups = (scenarios: ReadonlyArray<Scenario>, solved: ReadonlyArray<string>): ReadonlyArray<TopicGroup> =>
+  [...new Set(scenarios.map(topicOf))].map((topic) => {
+    const items = scenarios.filter((s) => topicOf(s) === topic)
+    return { topic, items, done: items.filter((s) => solved.includes(s.id)).length }
+  })
 
 export const topicOf = (scenario: Scenario): ScenarioTopic => scenario.topic ?? "build"
 

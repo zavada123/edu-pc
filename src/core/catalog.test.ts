@@ -1,14 +1,15 @@
 import { describe, expect, test } from "vitest"
 import { scenarios } from "../scenarios/index.ts"
-import { gradeGroups, nextScenario, summaryOf, topicOf } from "./catalog.ts"
+import { topicGroups, nextScenario, summaryOf, topicOf } from "./catalog.ts"
 
 const all = Object.values(scenarios)
 
 describe("task catalog", () => {
-  test("groups the exercises by grade, lower grades first, and counts the done ones", () => {
-    const groups = gradeGroups(all, ["grade3-new-box"])
-    expect(groups.map((g) => g.grade)).toEqual([3, 8])
-    expect(groups[0]?.done).toBe(1)
+  test("groups the exercises by topic, without grades, and counts the done ones", () => {
+    const groups = topicGroups(all, ["grade3-new-box"])
+    expect(new Set(groups.map((g) => g.topic)).size).toBe(groups.length)
+    expect(groups.find((g) => g.items.some((s) => s.id === "grade3-new-box"))?.done).toBe(1)
+    for (const g of groups) expect(g.items.every((s) => topicOf(s) === g.topic)).toBe(true)
     expect(groups.reduce((n, g) => n + g.items.length, 0)).toBe(all.length)
   })
 
