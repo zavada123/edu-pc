@@ -197,17 +197,6 @@ export declare const grade8DeskLayout: SceneLayout;
  */
 export declare const CASE_SIZE: Vec3;
 export declare const CASE_FLOOR = 1;
-/**
- * Where our board's centre lands in the case, and its quarter turn there (3: the rear panel faces the back).
- * Its ports reach into the I/O shield in the case's back wall, as on a real build, and its graphics card's
- * bracket comes up to the slot covers.
- */
-/**
- * How far the board sits towards the back past where its graphics card's bracket would put it: the realistic
- * board's rear ports then come out flush with the outside of the case's back wall (z 22.06) instead of sinking
- * 3 mm behind it. The card keeps its place at the slot covers (see GPU_AT).
- */
-export declare const IO_REACH = 0.3;
 export declare const BOARD_IN_CASE: Vec3;
 export declare const BOARD_TURN_IN_CASE = 3;
 /** A point on our board (board coordinates) in case coordinates, once the board is in the case. */

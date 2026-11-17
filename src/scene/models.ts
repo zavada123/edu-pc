@@ -128,7 +128,7 @@ const standIn = (real: Group, code: Group): Group => {
   return real
 }
 
-/** The realistic case's own fittings: the tray's grommets and the rear fan. The I/O shield comes with the board (see ioShield.ts). */
+/** The realistic case's own fittings: the tray's grommets and the rear fan. Its I/O opening is left open, with no shield. */
 const withFittings = (real: Group): Group => {
   real.add(trayGrommets(TRAY_Y, true), rearFan())
   return real
