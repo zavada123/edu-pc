@@ -321,7 +321,7 @@ const STANDOFF = 1.2
  * board's rear ports then come out flush with the outside of the case's back wall (z 22.06) instead of sinking
  * 3 mm behind it. The card keeps its place at the slot covers (see GPU_AT).
  */
-export const IO_REACH = 0.3
+const IO_REACH = 0.3
 export const BOARD_IN_CASE: Vec3 = [-4.25, CASE_FLOOR + STANDOFF, 9.65 + IO_REACH]
 export const BOARD_TURN_IN_CASE = 3
 
