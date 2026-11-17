@@ -16,13 +16,24 @@ describe("laneBetween", () => {
 })
 
 describe("roundCorners", () => {
-  test("keeps the ends and cuts each corner back on both sides", () => {
+  test("keeps the ends, cuts each corner back on both sides and rounds it", () => {
     const pts = roundCorners([new Vector3(0, 0, 0), new Vector3(10, 0, 0), new Vector3(10, 0, 10)], 1)
+    expect(pts[0]?.toArray()).toEqual([0, 0, 0])
+    expect(pts[1]?.toArray()).toEqual([9, 0, 0])
+    expect(pts[pts.length - 2]?.toArray()).toEqual([10, 0, 1])
+    expect(pts[pts.length - 1]?.toArray()).toEqual([10, 0, 10])
+    // the bend in between stays inside the corner it cuts
+    for (const p of pts.slice(2, -2)) {
+      expect(p.x).toBeGreaterThan(9)
+      expect(p.z).toBeLessThan(1)
+    }
+  })
+
+  test("drops the middle points of a straight run", () => {
+    const pts = roundCorners([new Vector3(0, 0, 0), new Vector3(5, 0, 0), new Vector3(10, 0, 0)], 1)
     expect(pts.map((p) => p.toArray())).toEqual([
       [0, 0, 0],
-      [9, 0, 0],
-      [10, 0, 1],
-      [10, 0, 10]
+      [10, 0, 0]
     ])
   })
 

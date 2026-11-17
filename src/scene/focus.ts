@@ -1,4 +1,4 @@
-import type { SceneLayout, Vec3 } from "./layout.ts"
+import { type SceneLayout, type Vec3, zoneCentre } from "./layout.ts"
 
 const BENCH_CENTRE: Vec3 = [0, 0, 0]
 
@@ -51,11 +51,11 @@ export const focusPoint = (
   if (button) return [button.at, 30, [button.normal[0], button.normal[1] + 0.75, button.normal[2] + 0.35]]
   const poses = slots.map((s) => layout.slots[s]).filter((p) => p !== undefined)
   if (poses.length === 0) return wholeDesk(layout)
-  const xs = poses.flatMap((p) => [p.at[0] - p.area[0] / 2, p.at[0] + p.area[0] / 2])
-  const zs = poses.flatMap((p) => [p.at[2] - p.area[2] / 2, p.at[2] + p.area[2] / 2])
+  const xs = poses.flatMap((p) => [zoneCentre(p)[0] - p.area[0] / 2, zoneCentre(p)[0] + p.area[0] / 2])
+  const zs = poses.flatMap((p) => [zoneCentre(p)[2] - p.area[2] / 2, zoneCentre(p)[2] + p.area[2] / 2])
   const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs))
   const centre: Vec3 = [(Math.max(...xs) + Math.min(...xs)) / 2, poses[0]?.at[1] ?? 0, (Math.max(...zs) + Math.min(...zs)) / 2]
-  const bounds = boundsOf(poses.map((p) => ({ at: p.at, half: [p.area[0] / 2, p.area[1] / 2, p.area[2] / 2] })))
+  const bounds = boundsOf(poses.map((p) => ({ at: zoneCentre(p), half: [p.area[0] / 2, p.area[1] / 2, p.area[2] / 2] })))
   return [centre, Math.min(Math.max(45, layout.overview ?? 0), Math.max(20, 14 + span * 1.8)), poses[0]?.view ?? FRONT_VIEW, bounds]
 }
 

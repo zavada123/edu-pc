@@ -1,4 +1,4 @@
-import { type Group, type Material } from "three"
+import { type Group, type Material, Vector3 } from "three"
 import type { Slot } from "../core/scenario.ts"
 import { realModel } from "./gltf.ts"
 import { M, box, boxes, cylinder, group, mat, mergeStatic, rounded, seeded, shadowed } from "./kit.ts"
@@ -12,7 +12,8 @@ import {
   REAR_FACE_X,
   REAR_PORTS
 } from "./layout.ts"
-import { BOARD_D, BOARD_W, boardTexture, groovesTexture, pinGridTexture, socketTexture } from "./textures.ts"
+import { BOARD_PORTS, type ConnectorKind, IDENTITY, type Port, portPose } from "./ports.ts"
+import { BOARD_D, BOARD_W, boardTexture, groovesTexture, socketTexture } from "./textures.ts"
 
 type Rect = readonly [number, number, number, number] // x0, z0, x1, z1
 
@@ -52,11 +53,54 @@ const dimmSlot = (x: number, z: number): Group => {
   )
 }
 
-const fanHeader = (x: number, z: number): Group => {
-  const g = group(box([1.25, 0.22, 0.62], M.whitePlastic, x, BOARD_TOP, z), box([1.25, 0.6, 0.08], M.whitePlastic, x, BOARD_TOP, z - 0.3))
-  g.add(boxes([0.07, 0.55, 0.07], M.gold, [0, 1, 2, 3].map((i) => [x - 0.38 + i * 0.25, BOARD_TOP, z + 0.05] as const)))
+/**
+ * A socket's body from the port map, behind its face: a plug from the same map sits right on it. Pin headers
+ * are white with gold pins, the power sockets white, SATA black and the USB 3.0 header blue.
+ */
+const HOUSING_LOOK: Partial<Record<ConnectorKind, Material>> = {
+  atx24: M.whitePlastic,
+  eps8: M.whitePlastic,
+  fan4: M.whitePlastic,
+  sataData: M.blackPlastic,
+  usb3Header: M.blueUsb
+}
+
+const housing = (port: Port): Group => {
+  const pose = portPose(port, IDENTITY)
+  const [l, w, d] = port.housing
+  const across = new Vector3().crossVectors(pose.along, pose.insert)
+  const size = new Vector3()
+  for (const [dir, length] of [
+    [pose.along, l],
+    [across, w],
+    [pose.insert, d]
+  ] as const) {
+    size.x += Math.abs(dir.x) * length
+    size.y += Math.abs(dir.y) * length
+    size.z += Math.abs(dir.z) * length
+  }
+  const centre = pose.at.clone().addScaledVector(pose.insert, d / 2)
+  const look = HOUSING_LOOK[port.kind] ?? M.blackPlastic
+  const g = group(box([size.x, size.y, size.z], look, centre.x, centre.y - size.y / 2, centre.z))
+  if (port.kind === "fPanel" || port.kind === "hdAudio" || port.kind === "fan4") {
+    // the pins stand in the open: a row of gold pins along the long side, two rows for a header
+    const rows = port.kind === "fan4" ? 1 : 2
+    const pins = Math.round(l / 0.254)
+    const at: Array<[number, number, number]> = []
+    for (let r = 0; r < rows; r++)
+      for (let i = 0; i < pins; i++) {
+        const t = (i - (pins - 1) / 2) * 0.254
+        const o = (r - (rows - 1) / 2) * 0.254
+        at.push([pose.at.x + pose.along.x * t + across.x * o, pose.at.y - 0.05, pose.at.z + pose.along.z * t + across.z * o])
+      }
+    g.add(boxes([0.06, 0.55, 0.06], M.gold, at))
+  }
   return g
 }
+
+/** Every socket on the board that a cable goes into, where the port map has it (the rear panel draws its own). */
+const portHousings = (): Group =>
+  group(...Object.values(BOARD_PORTS).filter((p) => p.kind !== "usbA" && p.kind !== "hdmi").map(housing))
 
 const m2Connector = (x: number, z: number, standoffX: number): Group =>
   group(
@@ -113,7 +157,7 @@ const rearPanel = (): Group => {
     g.add(box(shell, M.aluminium, portX, BOARD_TOP + py - shell[1] / 2, pz), box(inner, core, portX, BOARD_TOP + py - inner[1] / 2, pz))
   }
   for (const key of ["usb1", "usb2", "usb3", "usb4"] as const) port(key, [0.5, 0.7, 1.3], [0.52, 0.2, 1.0], M.blueUsb)
-  port("hdmi", [0.5, 1.5, 0.5], [0.52, 1.2, 0.28], M.chip)
+  port("hdmi", [0.5, 0.69, 1.65], [0.52, 0.42, 1.3], M.chip)
   port("lan", [0.5, 1.2, 1.4], [0.52, 0.9, 1.0], M.chip)
   const audio: Array<[number, Material]> = [
     [0.4, M.yellow],
@@ -179,18 +223,6 @@ const smdParts = (): Group => {
   )
 }
 
-const at = ([x, z]: readonly [number, number]): [number, number, number] => [x, BOARD_TOP, z]
-
-/** Two SATA ports stacked at the board's edge, for disks. */
-const sataPorts = (): Group => {
-  const [x, z] = BOARD_CONNECTORS.sata
-  return group(
-    rounded([1.3, 0.85, 1.6], 0.06, M.blackPlastic, x, BOARD_TOP, z),
-    box([0.9, 0.02, 0.35], M.chip, x, BOARD_TOP + 0.85, z - 0.35),
-    box([0.9, 0.02, 0.35], M.chip, x, BOARD_TOP + 0.85, z + 0.35)
-  )
-}
-
 const decorations = (socket: readonly [number, number]): Group => {
   const [sx, sz] = socket
   const g = group(
@@ -202,9 +234,7 @@ const decorations = (socket: readonly [number, number]): Group => {
     rounded([4, 0.9, 4], 0.15, M.gunmetal, 4, BOARD_TOP, 6.5),
     box([3.2, 0.02, 3.2], mat("#ffffff", { map: groovesTexture(), metal: 0.6, rough: 0.4 }), 4, BOARD_TOP + 0.9, 6.5),
     box([1, 0.03, 1], M.accent, 5, BOARD_TOP + 0.92, 7.5),
-    box([1.2, 1.6, 5.4], top(mat("#ffffff", { map: pinGridTexture(2, 12) }), M.whitePlastic), ...at(BOARD_CONNECTORS.atx24)),
-    box([1.9, 1.2, 1], top(mat("#ffffff", { map: pinGridTexture(4, 2) }), M.blackPlastic), ...at(BOARD_CONNECTORS.eps8)),
-    sataPorts(),
+    portHousings(),
     cylinder(1.05, 0.25, M.blackPlastic, 10, BOARD_TOP, 10.1, 32),
     cylinder(0.95, 0.3, M.capTop, 10, BOARD_TOP + 0.1, 10.1, 32),
     smdParts()
@@ -242,7 +272,6 @@ export const buildBoard = (face: BoardFace, slots: ReadonlyArray<Slot>, poses: P
     const [x, , z] = pose.at
     if (slot.accepts.includes("cpu")) g.add(socketModel(x, z))
     else if (slot.accepts.includes("ram")) g.add(dimmSlot(x, z))
-    else if (slot.accepts.includes("fanCable")) g.add(fanHeader(x, z))
     // the connector at the right end, as on the real board; the screw at the left
     else if (slot.accepts.includes("m2ssd")) g.add(m2Connector(x + 4.2, z, x - 4.0))
   }

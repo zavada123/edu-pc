@@ -1,4 +1,4 @@
-import type { SceneLayout, Vec3 } from "./layout.ts";
+import { type SceneLayout, type Vec3 } from "./layout.ts";
 /** Where the camera looks from, as a direction from the target, when a slot does not say. */
 export declare const FRONT_VIEW: Vec3;
 /** A box in bench coordinates: its lowest and highest corner. */
