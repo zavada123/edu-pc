@@ -316,7 +316,13 @@ const STANDOFF = 1.2
  * Its ports reach into the I/O shield in the case's back wall, as on a real build, and its graphics card's
  * bracket comes up to the slot covers.
  */
-export const BOARD_IN_CASE: Vec3 = [-4.25, CASE_FLOOR + STANDOFF, 9.65]
+/**
+ * How far the board sits towards the back past where its graphics card's bracket would put it: the realistic
+ * board's rear ports then come out flush with the outside of the case's back wall (z 22.06) instead of sinking
+ * 3 mm behind it. The card keeps its place at the slot covers (see GPU_AT).
+ */
+export const IO_REACH = 0.3
+export const BOARD_IN_CASE: Vec3 = [-4.25, CASE_FLOOR + STANDOFF, 9.65 + IO_REACH]
 export const BOARD_TURN_IN_CASE = 3
 
 /** A point on our board (board coordinates) in case coordinates, once the board is in the case. */
@@ -326,7 +332,7 @@ const PSU_AT: Vec3 = [16.2, CASE_FLOOR, 14.4]
 const HDD_AT: Vec3 = [16.2, CASE_FLOOR, -8]
 /** The slot for the graphics card: card fingers sit 0.8 cm deep in the PCIe slot. */
 const pcie = (at: readonly [number, number]): Vec3 => onBoard(at[0], BOARD_TOP + 1.1 - 0.8, at[1])
-const GPU_AT = pcie(BOARD_CONNECTORS.pcieX16)
+const GPU_AT: Vec3 = ((p: Vec3): Vec3 => [p[0], p[1], p[2] - IO_REACH])(pcie(BOARD_CONNECTORS.pcieX16))
 
 /** Where each device stands in the case: its ports go with it (see ports.ts). */
 export const CASE_FRAMES = {

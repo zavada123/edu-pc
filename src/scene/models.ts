@@ -22,7 +22,7 @@ import {
   speakers
 } from "./devices.ts"
 import { M, mat, shadowed } from "./kit.ts"
-import { BOARD_IN_CASE, CASE_SIZE, GRADE8_BOARD, grade8CaseLayout, grade8DeskLayout, type SlotPose, TOWER_AT } from "./layout.ts"
+import { BOARD_IN_CASE, CASE_SIZE, IO_REACH, GRADE8_BOARD, grade8CaseLayout, grade8DeskLayout, type SlotPose, TOWER_AT } from "./layout.ts"
 import { buildPart } from "./parts.ts"
 import { type ConnectorKind, PLUGS } from "./ports.ts"
 import { REAR_FAN, type RouteStep, runRoute, TRAY_Y } from "./routes.ts"
@@ -130,9 +130,9 @@ const standIn = (real: Group, code: Group): Group => {
 
 /**
  * The I/O shield in the realistic case's back wall: the plate round the board's rear ports. It fills the
- * opening (x, y in case coordinates, measured on the case's file) round the ports, which come through it.
+ * opening (x, y in case coordinates, measured on the case's file) against the inside of the wall (z 21.96), round the ports, which come through it.
  */
-const IO_SHIELD = { x: [-18.55, -2.2], y: [2.0, 6.5], z: 21.66, thick: 0.08 } as const
+const IO_SHIELD = { x: [-18.55, -2.2], y: [2.0, 6.5], z: 21.92, thick: 0.08 } as const
 
 /**
  * The shield's cut-outs, one per block of the board's rear ports, in case x and height above the board
@@ -149,10 +149,11 @@ const IO_PORT_HOLES: ReadonlyArray<{ readonly x: readonly [number, number]; read
 ]
 
 /**
- * The back of the cut-outs, just behind the ports' faces (the deepest, HDMI and DisplayPort, are at z 20.18):
+ * The back of the cut-outs, just behind the ports' faces (the deepest, HDMI and DisplayPort, are 1.56 behind
+ * the board's own I/O cover):
  * the port block's own cover has gaps between its ports, so without it the board's inside shows through them.
  */
-const IO_BACKING_Z = 20.05
+const IO_BACKING_Z = 20.05 + IO_REACH
 
 const rect = (x0: number, x1: number, y0: number, y1: number, path: Path = new Path()): Path =>
   path.moveTo(x0, y0).lineTo(x0, y1).lineTo(x1, y1).lineTo(x1, y0).closePath()
